@@ -174,7 +174,7 @@
             <th>Status</th>
             <th>Est. Value</th>
             <th>Follow-up</th>
-            <th style="text-align:right;padding-right:16px;">Actions</th>
+            <th style="padding-right:16px;">Actions</th>
           </tr>
         </thead>
         <tbody id="leadsTableBody">

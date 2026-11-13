@@ -13,7 +13,7 @@
   <div class="view-header">
     <div class="pay-header-text">
       <div class="view-title">Payments &amp; Invoicing</div>
-      <div class="view-sub pay-header-sub">Manage invoices, payments and track your business revenue</div>
+
     </div>
     <div class="pay-header-actions">
       <div class="pay-filter-field pay-filter-field--icon">
@@ -32,7 +32,15 @@
   <!-- Everything below the header scrolls in one area; the header stays fixed -->
   <div class="pay-scroll-area" id="paymentsScrollArea">
     <div class="pay-kpi-grid">
-    <div class="pay-kpi">
+    <div class="pay-kpi pay-kpi--total">
+      <div class="pay-kpi-icon" style="background:#FFF7ED;color:#EF4444;"><i class="ti ti-report-money"></i></div>
+      <div class="pay-kpi-body">
+        <div class="pay-kpi-label">Total Amount</div>
+        <div class="pay-kpi-value" id="payKpiTotalAmount">₹0</div>
+        <div class="pay-kpi-sub" id="payKpiTotalAmountSub">0 Invoices</div>
+      </div>
+    </div>
+    <div class="pay-kpi pay-kpi--cash">
       <div class="pay-kpi-icon" style="background:#ECFDF5;color:#10B981;"><i class="ti ti-cash"></i></div>
       <div class="pay-kpi-body">
         <div class="pay-kpi-label">Total Cash</div>
@@ -40,7 +48,7 @@
         <div class="pay-kpi-sub" id="payKpiCashSub">0 Invoices</div>
       </div>
     </div>
-    <div class="pay-kpi">
+    <div class="pay-kpi pay-kpi--upi">
       <div class="pay-kpi-icon" style="background:#EFF6FF;color:#3B82F6;"><i class="ti ti-device-mobile"></i></div>
       <div class="pay-kpi-body">
         <div class="pay-kpi-label">Total UPI</div>
@@ -48,7 +56,7 @@
         <div class="pay-kpi-sub" id="payKpiUpiSub">0 Invoices</div>
       </div>
     </div>
-    <div class="pay-kpi">
+    <div class="pay-kpi pay-kpi--split">
       <div class="pay-kpi-icon" style="background:#F3E8FF;color:#A855F7;"><i class="ti ti-wallet"></i></div>
       <div class="pay-kpi-body">
         <div class="pay-kpi-label">Total Cash + UPI</div>

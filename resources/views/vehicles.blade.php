@@ -18,11 +18,12 @@
     <div class="toolbar">
       <input id="vehSearchInput" aria-label="Search vehicle number" placeholder="Search vehicle number" autocomplete="off">
       <div class="chip active" data-filter="all">All types</div>
-      <div class="chip" data-filter="sedan">Sedan</div>
-      <div class="chip" data-filter="suv">SUV</div>
-      <div class="chip" data-filter="hatchback">Hatchback</div>
-      <div class="chip" data-filter="luxury">Luxury</div>
-      <div class="chip" data-filter="two-wheeler">2-Wheeler</div>
+      <div class="chip" data-filter="hatchback">HATCHBACK</div>
+      <div class="chip" data-filter="sedan">SEDAN/COMPACT SUV</div>
+      <div class="chip" data-filter="suv">SUV/XL SEDAN/LUXURY</div>
+      <div class="chip" data-filter="scooter">SCOOTER</div>
+      <div class="chip" data-filter="bike">BIKE</div>
+      <div class="chip" data-filter="bullet">BULLET/PREMIUM BIKE</div>
     </div>
     <div class="table-scroll">
       <table>
@@ -66,11 +67,12 @@
         </div>
         <div class="field"><label for="evType">Vehicle Type</label>
           <select id="evType">
-            <option value="hatchback">Hatchback</option>
-            <option value="sedan">Sedan</option>
-            <option value="suv">SUV</option>
-            <option value="luxury">Luxury</option>
-            <option value="two-wheeler">2-Wheeler</option>
+            <option value="hatchback">HATCHBACK</option>
+            <option value="sedan">SEDAN/COMPACT SUV</option>
+            <option value="suv">SUV/XL SEDAN/LUXURY</option>
+            <option value="scooter">SCOOTER</option>
+            <option value="bike">BIKE</option>
+            <option value="bullet">BULLET/PREMIUM BIKE</option>
           </select>
         </div>
       </div>

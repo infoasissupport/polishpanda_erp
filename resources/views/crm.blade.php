@@ -108,11 +108,12 @@
         <div class="modal-row">
           <div class="field"><label for="evType">Vehicle Type</label>
             <select id="evType">
-              <option value="hatchback">Hatchback</option>
-              <option value="sedan">Sedan</option>
-              <option value="suv">SUV</option>
-              <option value="luxury">Luxury</option>
-              <option value="two-wheeler">2-Wheeler</option>
+              <option value="hatchback">HATCHBACK</option>
+              <option value="sedan">SEDAN/COMPACT SUV</option>
+              <option value="suv">SUV/XL SEDAN/LUXURY</option>
+              <option value="scooter">SCOOTER</option>
+              <option value="bike">BIKE</option>
+              <option value="bullet">BULLET/PREMIUM BIKE</option>
             </select>
           </div>
           <div class="field"><label for="evLastWash">Last Wash Detail</label><input type="text" id="evLastWash" placeholder="e.g. 12 Aug 2026"></div>

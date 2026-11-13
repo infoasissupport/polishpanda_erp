@@ -267,9 +267,12 @@ overflow: auto;
 @media(max-width:1199px){.pay-kpi-label{font-size:14px;}}
 .pay-kpi-value{font-size:24px;font-weight:700;color:#0f1115;margin-top:4px;font-variant-numeric:tabular-nums;}
 .pay-kpi-sub{font-size:12px;color:#98a2b3;margin-top:2px;text-transform:capitalize;}
-.pay-kpi:nth-child(1){--kpi-wave:#10B981;}
-.pay-kpi:nth-child(2){--kpi-wave:#3B82F6;}
-.pay-kpi:nth-child(3){--kpi-wave:#A855F7;}
+.pay-kpi:nth-child(1), .pay-kpi.pay-kpi--total{--kpi-wave:#ef4444;}
+.pay-kpi:nth-child(2), .pay-kpi.pay-kpi--cash{--kpi-wave:#10B981;}
+.pay-kpi:nth-child(3), .pay-kpi.pay-kpi--upi{--kpi-wave:#3B82F6;}
+.pay-kpi:nth-child(4), .pay-kpi.pay-kpi--split{--kpi-wave:#A855F7;}
+.pay-kpi-icon, .pay-kpi-body{position:relative;z-index:1;}
+.pay-kpi::after{content:'' !important;display:block !important;z-index:0 !important;}
 
 /* ---- Invoice preview: products included in the service ---- */
 .inv-incl{margin:2px 0 10px;background:#fff;border:1px solid #e8ecf2;border-radius:10px;overflow:hidden;}
@@ -326,11 +329,13 @@ section#payments .view-header{
   flex-direction:row;align-items:flex-start;gap:16px;
   padding:20px !important;border:1px solid #ccc;border-radius:10px;
   background:linear-gradient(160deg,#ffffff 0%,#ffffff 38%,var(--kpi-tint) 100%);
-  box-shadow:0 14px 30px -18px rgba(16,24,40,.38); margin-bottom: 10px;  
+   margin-bottom: 0px;  
 }
-#payments .pay-kpi:nth-child(1){--kpi-tint:#ecfbf1;--kpi-ink:#16a34a;--kpi-tile:#d6f5e1;}
-#payments .pay-kpi:nth-child(2){--kpi-tint:#eef4ff;--kpi-ink:#2563eb;--kpi-tile:#dce8ff;}
-#payments .pay-kpi:nth-child(3){--kpi-tint:#f5f0ff;--kpi-ink:#7c3aed;--kpi-tile:#ebe1ff;}
+#payments .pay-kpi:nth-child(1), #payments .pay-kpi.pay-kpi--total{--kpi-tint:#fff7ed;--kpi-ink:#ef4444;--kpi-tile:#fff7ed;--kpi-wave:#ef4444;}
+#payments .pay-kpi:nth-child(2), #payments .pay-kpi.pay-kpi--cash{--kpi-tint:#ecfbf1;--kpi-ink:#16a34a;--kpi-tile:#d6f5e1;--kpi-wave:#10B981;}
+#payments .pay-kpi:nth-child(3), #payments .pay-kpi.pay-kpi--upi{--kpi-tint:#eef4ff;--kpi-ink:#2563eb;--kpi-tile:#dce8ff;--kpi-wave:#3B82F6;}
+#payments .pay-kpi:nth-child(4), #payments .pay-kpi.pay-kpi--split{--kpi-tint:#f5f0ff;--kpi-ink:#7c3aed;--kpi-tile:#ebe1ff;--kpi-wave:#A855F7;}
+#payments .pay-kpi::after{content:'' !important;display:block !important;z-index:0 !important;}
 /* the icon colours are inline in the markup; the card palette wins */
 #payments .pay-kpi-icon{width:64px;height:64px;border-radius:16px;font-size:30px;
   background:var(--kpi-tile) !important;color:var(--kpi-ink) !important;

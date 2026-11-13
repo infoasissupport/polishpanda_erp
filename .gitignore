@@ -29,3 +29,6 @@ Thumbs.db
 # Temporary/scratch files
 add_export_modal.py
 raw_content.txt
+__MACOSX/
+*.swp
+

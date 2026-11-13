@@ -77,11 +77,12 @@
           </div>
           <div class="field"><label for="nbVehicleType">Vehicle Type</label>
             <select id="nbVehicleType">
-              <option value="hatchback">Hatchback</option>
-              <option value="sedan" selected>Sedan</option>
-              <option value="suv">SUV</option>
-              <option value="luxury">Luxury</option>
-              <option value="two-wheeler">2-Wheeler</option>
+              <option value="hatchback">HATCHBACK</option>
+              <option value="sedan" selected>SEDAN/COMPACT SUV</option>
+              <option value="suv">SUV/XL SEDAN/LUXURY</option>
+              <option value="scooter">SCOOTER</option>
+              <option value="bike">BIKE</option>
+              <option value="bullet">BULLET/PREMIUM BIKE</option>
             </select>
           </div>
           <div class="field"><label for="nbSource">Source</label>

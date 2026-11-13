@@ -149,11 +149,12 @@
             <div class="field">
               <label class="label" for="nwVehicleType">Vehicle Type</label>
               <select id="nwVehicleType" required>
-                <option value="Hatchback">Hatchback</option>
-                <option value="Sedan" selected>Sedan</option>
-                <option value="SUV">SUV</option>
-                <option value="Luxury">Luxury</option>
-                <option value="Bike">Bike / Two Wheeler</option>
+                <option value="hatchback">HATCHBACK</option>
+                <option value="sedan" selected>SEDAN/COMPACT SUV</option>
+                <option value="suv">SUV/XL SEDAN/LUXURY</option>
+                <option value="scooter">SCOOTER</option>
+                <option value="bike">BIKE</option>
+                <option value="bullet">BULLET/PREMIUM BIKE</option>
               </select>
             </div>
           </div>
