@@ -20,8 +20,8 @@
       $lines[] = ['name' => $invoice->service, 'hsn' => '', 'qty' => 1, 'unit' => '-', 'rate' => (float) $breakdown['serviceRemainder'], 'sub' => false];
     }
     if ($breakdown['serviceCharge'] > 0) {
-      $lines[] = ['name' => 'Service charge (' . rtrim(rtrim(number_format($breakdown['serviceChargeRate'], 2), '0'), '.') . '%)',
-                  'hsn' => '', 'qty' => 1, 'unit' => '-', 'rate' => (float) $breakdown['serviceCharge'], 'sub' => !empty($serviceProducts)];
+      $lines[] = ['name' => 'Service charge',
+                  'hsn' => '998714', 'qty' => 1, 'unit' => '-', 'rate' => (float) $breakdown['serviceCharge'], 'sub' => !empty($serviceProducts)];
     }
     if ($item_price > 0 && !empty($invoice->item_name)) {
       $iq = max(1, (float) ($item_quantity ?? 1));
@@ -38,7 +38,7 @@
                     'unit' => $sp['unit'] ?? '-', 'rate' => (float) ($sp['price'] ?? 0), 'sub' => true];
       }
       if ($servicePrice > 0) {
-        $lines[] = ['name' => 'Service charge', 'hsn' => '', 'qty' => 1, 'unit' => '-', 'rate' => (float) $servicePrice, 'sub' => true];
+        $lines[] = ['name' => 'Service charge', 'hsn' => '998714', 'qty' => 1, 'unit' => '-', 'rate' => (float) $servicePrice, 'sub' => true];
       }
     } else {
       $lines[] = ['name' => $invoice->service, 'hsn' => '', 'qty' => 1, 'unit' => '-', 'rate' => (float) $servicePrice];

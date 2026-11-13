@@ -390,24 +390,36 @@
     });
   }
 
+  var PHOTO_TRASH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12M9 7V4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/></svg>';
+
   // Runs a multi-file <input type="file"> picker, uploading each selected
   // file to cardId one at a time (sequential — the server increments the
   // photo counter per call, so parallel requests would race on it). Calls
   // onDone(uploadedCount, failedCount, lastUpdatedCard) once all finish.
   function buildPhotoTilesHtml(cardId, photoCount, updatedAt) {
     var html = '';
+    var t = updatedAt ? new Date(updatedAt).getTime() : Date.now();
     for (var i = 1; i <= photoCount; i++) {
-      var imgSrc = '/uploads/jobcards/jc_' + cardId + '_' + i + '.jpg?t=' + (updatedAt ? new Date(updatedAt).getTime() : '');
-      html += '<div class="photo-ph" style="background-image: url(\'' + imgSrc + '\'); background-size: cover; background-position: center;"></div>';
+      var imgSrc = '/uploads/jobcards/jc_' + cardId + '_' + i + '.jpg?t=' + t;
+      html += '<div class="photo-ph" style="background-image: url(\'' + imgSrc + '\'); background-size: cover; background-position: center;">' +
+        '<button type="button" class="photo-del-btn" data-card-id="' + cardId + '" data-type="" data-index="' + i + '" title="Delete photo">' +
+        PHOTO_TRASH_SVG +
+        '</button>' +
+        '</div>';
     }
     return html;
   }
 
   function buildTypedPhotoTilesHtml(cardId, type, photoCount, updatedAt) {
     var html = '';
+    var t = updatedAt ? new Date(updatedAt).getTime() : Date.now();
     for (var i = 1; i <= photoCount; i++) {
-      var imgSrc = '/uploads/jobcards/jc_' + cardId + '_' + type + '_' + i + '.jpg?t=' + (updatedAt ? new Date(updatedAt).getTime() : '');
-      html += '<div class="photo-ph" style="background-image: url(\'' + imgSrc + '\'); background-size: cover; background-position: center;"></div>';
+      var imgSrc = '/uploads/jobcards/jc_' + cardId + '_' + type + '_' + i + '.jpg?t=' + t;
+      html += '<div class="photo-ph" style="background-image: url(\'' + imgSrc + '\'); background-size: cover; background-position: center;">' +
+        '<button type="button" class="photo-del-btn" data-card-id="' + cardId + '" data-type="' + type + '" data-index="' + i + '" title="Delete photo">' +
+        PHOTO_TRASH_SVG +
+        '</button>' +
+        '</div>';
     }
     return html;
   }
@@ -1090,4 +1102,63 @@
       }, 600);
     });
   }
+
+  // Delegated photo deletion handler
+  document.addEventListener('click', async function (e) {
+    var delBtn = e.target.closest('.photo-del-btn');
+    if (!delBtn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!confirm('Are you sure you want to delete this photo?')) {
+      return;
+    }
+
+    var cardId = delBtn.getAttribute('data-card-id');
+    var type = delBtn.getAttribute('data-type') || '';
+    var index = delBtn.getAttribute('data-index');
+
+    try {
+      delBtn.disabled = true;
+      var url = '/api/jobcards/' + encodeURIComponent(cardId) + '/photos?type=' + encodeURIComponent(type) + '&index=' + encodeURIComponent(index);
+      var res = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!res.ok) {
+        var errRes = null;
+        try { errRes = await res.json(); } catch (err) {}
+        alert(errRes && errRes.message ? errRes.message : (errRes && errRes.error ? errRes.error : 'Failed to delete photo.'));
+        delBtn.disabled = false;
+        return;
+      }
+
+      var updatedCard = await res.json();
+      var localCard = JOBCARDS.find(function (c) { return String(c.id) === String(cardId); });
+      if (localCard) {
+        Object.assign(localCard, updatedCard);
+        renderTable();
+        openDetail(localCard.id);
+      } else {
+        openDetail(cardId);
+      }
+
+      if (typeof sjJobIdInput !== 'undefined' && sjJobIdInput && String(sjJobIdInput.value) === String(cardId) && sjPhotoGrid && sjAddPhotoBtn) {
+        sjPhotoGrid.innerHTML = buildTypedPhotoTilesHtml(cardId, 'before', updatedCard.photos_before || 0, updatedCard.updated_at);
+        sjPhotoGrid.appendChild(sjAddPhotoBtn);
+        if (sjTakePhotoBtn) sjPhotoGrid.appendChild(sjTakePhotoBtn);
+      }
+
+      if (window.SW && window.SW.showToast) {
+        window.SW.showToast('Photo deleted');
+      }
+    } catch (err) {
+      console.error('Photo delete error:', err);
+      alert('An error occurred while deleting the photo.');
+      delBtn.disabled = false;
+    }
+  });
 })();

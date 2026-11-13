@@ -2032,6 +2032,84 @@ FILES:
         return response()->json(['error' => 'No file uploaded'], 400);
     }
 
+    public function deleteJobCardPhoto(Request $request, $id)
+    {
+        $userId = $this->currentUserId();
+        $card = $this->applyBranchFilter(JobCard::where('user_id', $userId), request())->findOrFail($id);
+
+        $type = $request->input('type');
+        $index = (int) $request->input('index', 1);
+
+        $dir = public_path('uploads/jobcards');
+
+        if ($type === 'before') {
+            $total = (int) ($card->photos_before ?? 0);
+            if ($index < 1 || $index > $total) {
+                return response()->json(['error' => 'Invalid photo index'], 400);
+            }
+
+            $targetFile = "{$dir}/jc_{$card->id}_before_{$index}.jpg";
+            if (file_exists($targetFile)) {
+                @unlink($targetFile);
+            }
+
+            for ($i = $index + 1; $i <= $total; $i++) {
+                $oldFile = "{$dir}/jc_{$card->id}_before_{$i}.jpg";
+                $newFile = "{$dir}/jc_{$card->id}_before_" . ($i - 1) . ".jpg";
+                if (file_exists($oldFile)) {
+                    @rename($oldFile, $newFile);
+                }
+            }
+
+            $card->photos_before = max(0, $total - 1);
+        } elseif ($type === 'after') {
+            $total = (int) ($card->photos_after ?? 0);
+            if ($index < 1 || $index > $total) {
+                return response()->json(['error' => 'Invalid photo index'], 400);
+            }
+
+            $targetFile = "{$dir}/jc_{$card->id}_after_{$index}.jpg";
+            if (file_exists($targetFile)) {
+                @unlink($targetFile);
+            }
+
+            for ($i = $index + 1; $i <= $total; $i++) {
+                $oldFile = "{$dir}/jc_{$card->id}_after_{$i}.jpg";
+                $newFile = "{$dir}/jc_{$card->id}_after_" . ($i - 1) . ".jpg";
+                if (file_exists($oldFile)) {
+                    @rename($oldFile, $newFile);
+                }
+            }
+
+            $card->photos_after = max(0, $total - 1);
+        } else {
+            $total = (int) ($card->photos ?? 0);
+            if ($index < 1 || $index > $total) {
+                return response()->json(['error' => 'Invalid photo index'], 400);
+            }
+
+            $targetFile = "{$dir}/jc_{$card->id}_{$index}.jpg";
+            if (file_exists($targetFile)) {
+                @unlink($targetFile);
+            }
+
+            for ($i = $index + 1; $i <= $total; $i++) {
+                $oldFile = "{$dir}/jc_{$card->id}_{$i}.jpg";
+                $newFile = "{$dir}/jc_{$card->id}_" . ($i - 1) . ".jpg";
+                if (file_exists($oldFile)) {
+                    @rename($oldFile, $newFile);
+                }
+            }
+
+            $card->photos = max(0, $total - 1);
+        }
+
+        $card->touch();
+        $card->save();
+
+        return response()->json($card);
+    }
+
     /**
      * Invoices / Payments Endpoints.
      */
