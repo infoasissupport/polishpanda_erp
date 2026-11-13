@@ -151,6 +151,7 @@ document.addEventListener('click', function (e) {
   // shots, etc.) opens it enlarged in a shared lightbox.
   function initPhotoLightbox() {
     document.addEventListener('click', function (e) {
+      if (e.target.closest('.photo-del-btn')) return;
       var tile = e.target.closest('.photo-ph, .cjm-photo-tile');
       if (!tile) return;
       var match = /url\((['"]?)(.*?)\1\)/.exec(tile.style.backgroundImage);

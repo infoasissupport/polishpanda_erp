@@ -154,6 +154,7 @@ Route::prefix('api')->group(function () {
     Route::post('/jobcards', [CarwashApiController::class, 'createJobCard']);
     Route::put('/jobcards/{id}', [CarwashApiController::class, 'updateJobCard']);
     Route::post('/jobcards/{id}/photos', [CarwashApiController::class, 'uploadJobCardPhoto']);
+    Route::delete('/jobcards/{id}/photos', [CarwashApiController::class, 'deleteJobCardPhoto']);
 
     Route::get('/invoices', [CarwashApiController::class, 'getInvoices']);
     Route::post('/invoices', [CarwashApiController::class, 'createInvoice']);

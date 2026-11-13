@@ -117,7 +117,10 @@ flex: auto;
 .jc-checklist-add button{height:36px;padding:0 14px;font-size:12.5px;flex-shrink:0;}
 
 .jc-photo-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
-.photo-ph{flex:0 0 64px;height:56px;border-radius:8px;background:#f1f2f4;border:1px solid #eef1f5;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;cursor:pointer;}
+.photo-ph{flex:0 0 64px;height:56px;border-radius:8px;background:#f1f2f4;border:1px solid #eef1f5;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px;cursor:pointer;position:relative;}
+.photo-del-btn{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:rgba(220,38,38,0.92);color:#fff;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:transform 0.15s ease,background 0.15s ease;z-index:3;}
+.photo-del-btn:hover{background:#b91c1c;transform:scale(1.1);}
+.photo-del-btn svg{display:block;pointer-events:none;}
 .jc-add-photo{flex:0 0 64px;height:56px;border-radius:10px;border:1px dashed #d7dbe1;background:none;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:17px;cursor:pointer;}
 .jc-add-photo:hover{background:#f6f7f9;color:#475569;}
 

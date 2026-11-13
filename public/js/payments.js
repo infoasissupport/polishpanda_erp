@@ -626,7 +626,7 @@
             '<span class="inv-item-amt mono">' + formatMoney(qtyNum * price) + '</span>' +
           '</div>';
         }).join('') +
-          (t.taxInclusive && t.serviceCharge > 0 ? '<div class="inv-item-sc"><span>Service Charge (' + t.serviceChargeRate + '%)</span>' +
+          (t.taxInclusive && t.serviceCharge > 0 ? '<div class="inv-item-sc"><span>Service Charge <span class="inv-item-hsn" style="font-weight:400;margin-left:6px;font-size:11px;">SAC 998714</span></span>' +
             '<span class="mono">' + formatMoney(t.serviceCharge) + '</span></div>' : '');
         var productsTotalEl = document.getElementById('previewProductsTotal');
         // GST-inclusive: products + service charge = the service's taxable value
