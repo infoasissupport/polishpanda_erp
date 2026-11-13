@@ -424,7 +424,7 @@
   function matchesSearch(inv, query) {
     if (!query) return true;
     var veh = parseInvoiceVehicle(inv.vehicle);
-    var haystack = (inv.id + ' ' + inv.customer + ' ' + veh.number + ' ' + veh.model).toLowerCase();
+    var haystack = (inv.id + ' ' + inv.customer + ' ' + (inv.phone || '') + ' ' + veh.number + ' ' + veh.model).toLowerCase();
     if (haystack.indexOf(query) !== -1) return true;
     // Ignore spaces/dashes on both sides so "kl09e4567", "KL 765", "kl-765" all match
     var compactQuery = query.replace(/[\s-]+/g, '');
@@ -498,6 +498,7 @@
         '<td class="col-num">' + (start + idx + 1) + '</td>' +
         '<td class="cell-primary inv-id">' + escapeHtml(inv.id) + '</td>' +
         '<td class="inv-customer">' + escapeHtml(inv.customer) + '</td>' +
+        '<td class="inv-phone">' + escapeHtml(inv.phone || '—') + '</td>' +
         '<td class="inv-veh-no">' + escapeHtml(veh.number) + '</td>' +
         '<td class="inv-veh-model">' + escapeHtml(veh.model) + '</td>' +
         '<td class="inv-amount">₹' + getInvoiceEffectiveTotal(inv).toLocaleString('en-IN') + '</td>' +

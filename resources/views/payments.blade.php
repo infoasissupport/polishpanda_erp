@@ -69,7 +69,7 @@
   <div class="tablefiletrFlex ">
 
     <div class="toolbar">
-        <input id="invoiceSearchInput" aria-label="Search invoice, customer, vehicle number or model" placeholder="Search Invoice, Customer, Vehicle No. Or Model" autocomplete="off">
+        <input id="invoiceSearchInput" aria-label="Search invoice, customer, mobile, vehicle number or model" placeholder="Search Invoice, Customer, Mobile, Vehicle No. Or Model" autocomplete="off">
         <div class="pay-filter-field">
           <label for="invoiceFilterSelect" class="sr-only">Filter</label>
           <select id="invoiceFilterSelect">
@@ -96,7 +96,7 @@
       
       <div class="table-scroll">
         <table>
-          <thead><tr><th class="col-num">#</th><th>Invoice No.</th><th>Customer</th><th>Vehicle No.</th><th>Vehicle Model</th><th>Amount</th><th>Method</th><th>Status</th><th>Last Wash Detail</th></tr></thead>
+          <thead><tr><th class="col-num">#</th><th>Invoice No.</th><th>Customer</th><th>Mobile</th><th>Vehicle No.</th><th>Vehicle Model</th><th>Amount</th><th>Method</th><th>Status</th><th>Last Wash Detail</th></tr></thead>
           <tbody id="invoiceTableBody"></tbody>
         </table>
         <div class="dropdown-empty" id="invoiceEmptyState" style="display:none;">No invoices match your search.</div>
