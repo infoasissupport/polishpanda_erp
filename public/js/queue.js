@@ -521,10 +521,10 @@
           el.className = 'card bay-card';
           el.setAttribute('data-bay-id', bayId);
           el.setAttribute('data-bay-name', bayName);
-          var bayActionsHtml =
-            '<span class="bay-actions">' +
-              '<button type="button" class="bay-action-btn delete" data-bay-action="delete-bay" title="Delete bay">' + BAY_TRASH_SVG + '</button>' +
-            '</span>';
+          var bayActionsHtml = '';
+            // '<span class="bay-actions">' +
+            //   '<button type="button" class="bay-action-btn delete" data-bay-action="delete-bay" title="Delete bay">' + BAY_TRASH_SVG + '</button>' +
+            // '</span>';
             
           if (card) {
             var isWashing = card.stage === 'inprogress';

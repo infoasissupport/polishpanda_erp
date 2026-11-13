@@ -46,7 +46,7 @@ class CarwashApiController extends Controller
 
         if ($user && $user->role === 'manager' && $user->assigned_branch_id) {
             if (Schema::hasColumn($query->getModel()->getTable(), 'branch_id')) {
-                return $query->where(function($q) use ($user) {
+                return $query->where(function ($q) use ($user) {
                     $q->where('branch_id', $user->assigned_branch_id)->orWhereNull('branch_id');
                 });
             }
@@ -55,7 +55,7 @@ class CarwashApiController extends Controller
 
         if ($request && $request->filled('branch_id')) {
             if (Schema::hasColumn($query->getModel()->getTable(), 'branch_id')) {
-                return $query->where(function($q) use ($request) {
+                return $query->where(function ($q) use ($request) {
                     $q->where('branch_id', $request->input('branch_id'))->orWhereNull('branch_id');
                 });
             }
@@ -66,7 +66,7 @@ class CarwashApiController extends Controller
             $code = $request->input('branch_code');
             $branch = Branch::where('user_id', $this->currentUserId())->where('code', $code)->first();
             if ($branch && Schema::hasColumn($query->getModel()->getTable(), 'branch_id')) {
-                return $query->where(function($q) use ($branch) {
+                return $query->where(function ($q) use ($branch) {
                     $q->where('branch_id', $branch->id)->orWhereNull('branch_id');
                 });
             }
@@ -170,7 +170,7 @@ class CarwashApiController extends Controller
             ->selectRaw('service, COUNT(*) as count, SUM(amount) as revenue')
             ->groupBy('service')->orderByDesc('count')->orderByDesc('revenue')->limit(5)
             ->get()
-            ->map(fn ($s) => ['name' => $s->service, 'count' => (int) $s->count, 'revenue' => (float) $s->revenue]);
+            ->map(fn($s) => ['name' => $s->service, 'count' => (int) $s->count, 'revenue' => (float) $s->revenue]);
 
         return response()->json([
             'todayBookings' => $todayBookings,
@@ -311,21 +311,21 @@ class CarwashApiController extends Controller
             ->orderByDesc('count')
             ->limit(6)
             ->get()
-            ->map(fn ($service) => [
+            ->map(fn($service) => [
                 'name' => $service->service,
                 'count' => (int) $service->count,
             ])
             ->toArray();
 
         $revenueChart = [];
-        
+
         if ($timeframe === 'daily') {
             $standardHours = ['8 AM' => 8, '9 AM' => 9, '10 AM' => 10, '11 AM' => 11, '12 PM' => 12, '1 PM' => 13, '2 PM' => 14, '3 PM' => 15, '4 PM' => 16, '5 PM' => 17, '6 PM' => 18, '7 PM' => 19, '8 PM' => 20];
             foreach ($standardHours as $label => $h) {
                 $amount = (float) $this->applyBranchFilter(Invoice::where('user_id', $userId)->where('status', 'paid'), $request)
                     ->whereDate('created_at', $now->toDateString())
-                    ->whereTime('created_at', '>=', str_pad((string)$h, 2, '0', STR_PAD_LEFT).':00:00')
-                    ->whereTime('created_at', '<=', str_pad((string)$h, 2, '0', STR_PAD_LEFT).':59:59')
+                    ->whereTime('created_at', '>=', str_pad((string) $h, 2, '0', STR_PAD_LEFT) . ':00:00')
+                    ->whereTime('created_at', '<=', str_pad((string) $h, 2, '0', STR_PAD_LEFT) . ':59:59')
                     ->sum('amount');
                 $revenueChart[] = ['date' => $label, 'amount' => $amount];
             }
@@ -333,7 +333,8 @@ class CarwashApiController extends Controller
             $daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
             foreach ($daysOfWeek as $i => $dayName) {
                 $date = $now->copy()->startOfWeek()->addDays($i);
-                if ($date->isAfter($now)) break;
+                if ($date->isAfter($now))
+                    break;
                 $amount = (float) $this->applyBranchFilter(Invoice::where('user_id', $userId)->where('status', 'paid'), $request)
                     ->whereDate('created_at', $date->toDateString())
                     ->sum('amount');
@@ -354,7 +355,7 @@ class CarwashApiController extends Controller
         if (Schema::hasColumn('bookings', 'branch_id')) {
             $branchBreakdownQuery = Branch::where('user_id', $userId)
                 ->withCount([
-                    'bookings' => fn ($query) => $query->where('user_id', $userId)->where('created_at', '>=', $startOfPeriod),
+                    'bookings' => fn($query) => $query->where('user_id', $userId)->where('created_at', '>=', $startOfPeriod),
                 ])
                 ->orderBy('name');
             if (Schema::hasColumn('branches', 'active')) {
@@ -401,8 +402,8 @@ class CarwashApiController extends Controller
             'dailyRevenue' => $revenueChart,
             'branchBreakdown' => $branchBreakdown,
             'lowStockItems' => $lowStockItems,
-                        'monthLabel' => $timeframe === 'daily' 
-                ? 'Today (' . $now->format('d M') . ')' 
+            'monthLabel' => $timeframe === 'daily'
+                ? 'Today (' . $now->format('d M') . ')'
                 : ($timeframe === 'weekly' ? 'This Week' : $now->format('F Y')),
         ]);
     }
@@ -424,10 +425,10 @@ class CarwashApiController extends Controller
                     $q->where('booking_id', $b->id);
                     if ($b->phone && $b->vehicle_plate) {
                         // Fallback only if no booking_id, but MUST match both phone and vehicle plate!
-                        $q->orWhere(function($sub) use ($b) {
+                        $q->orWhere(function ($sub) use ($b) {
                             $sub->whereNull('booking_id')
                                 ->where('phone', $b->phone)
-                                ->where('vehicle', 'LIKE', $b->vehicle_plate.'%');
+                                ->where('vehicle', 'LIKE', $b->vehicle_plate . '%');
                         });
                     }
                 })
@@ -479,7 +480,7 @@ FILES:
         ]);
 
         $userId = $this->currentUserId();
-        
+
         if (!empty($validated['vehicle_plate'])) {
             $existing = \App\Models\Booking::where('user_id', $userId)
                 ->whereIn('status', ['waiting', 'confirmed', 'inprogress'])
@@ -488,10 +489,10 @@ FILES:
             if ($existing) {
                 return response()->json(['message' => 'Vehicle already in queue'], 422);
             }
-            
+
             $existingJc = \App\Models\JobCard::where('user_id', $userId)
                 ->whereIn('stage', ['assigned', 'inprogress'])
-                ->where('vehicle', 'LIKE', $validated['vehicle_plate'].'%')
+                ->where('vehicle', 'LIKE', $validated['vehicle_plate'] . '%')
                 ->exists();
             if ($existingJc) {
                 return response()->json(['message' => 'Vehicle already in queue'], 422);
@@ -640,7 +641,7 @@ FILES:
         $membership = $this->buildMembershipLabel($plan);
 
         $customer = Customer::create([
-        'branch_id' => $this->defaultBranchId(),
+            'branch_id' => $this->defaultBranchId(),
             'user_id' => $userId,
             'name' => $validated['name'],
             'phone' => $validated['phone'],
@@ -657,10 +658,10 @@ FILES:
             'membership' => $membership,
         ]);
 
-        if (! empty($validated['vehicles'])) {
+        if (!empty($validated['vehicles'])) {
             foreach ($validated['vehicles'] as $vehicle) {
                 Vehicle::create([
-        'branch_id' => $this->defaultBranchId(),
+                    'branch_id' => $this->defaultBranchId(),
                     'user_id' => $userId,
                     'plate' => $vehicle['plate'],
                     'customer_id' => $customer->id,
@@ -697,10 +698,10 @@ FILES:
     {
         $userId = $this->currentUserId();
         $customer = $this->applyBranchFilter(Customer::where('user_id', $userId), request())->findOrFail($id);
-        
+
         // Delete all associated vehicles before deleting the customer
         \App\Models\Vehicle::where('customer_id', $customer->id)->delete();
-        
+
         $customer->delete();
 
         return response()->json(['status' => 'success']);
@@ -731,13 +732,13 @@ FILES:
             $search = '%' . trim($request->input('search')) . '%';
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', $search)
-                  ->orWhere('phone', 'like', $search)
-                  ->orWhere('vehicle', 'like', $search)
-                  ->orWhere('vehicle_plate', 'like', $search)
-                  ->orWhere('service_interested', 'like', $search)
-                  ->orWhere('insurance_type', 'like', $search)
-                  ->orWhere('policy_number', 'like', $search)
-                  ->orWhere('destination', 'like', $search);
+                    ->orWhere('phone', 'like', $search)
+                    ->orWhere('vehicle', 'like', $search)
+                    ->orWhere('vehicle_plate', 'like', $search)
+                    ->orWhere('service_interested', 'like', $search)
+                    ->orWhere('insurance_type', 'like', $search)
+                    ->orWhere('policy_number', 'like', $search)
+                    ->orWhere('destination', 'like', $search);
             });
         }
 
@@ -1044,8 +1045,8 @@ FILES:
         $vehicles = $query->orderBy('updated_at', 'desc')->get();
 
         $jobCards = \App\Models\JobCard::where('user_id', $userId)
-                ->where('stage', 'completed')
-                ->get(['vehicle', 'service']);
+            ->where('stage', 'completed')
+            ->get(['vehicle', 'service']);
 
         foreach ($vehicles as $v) {
             $count = 0;
@@ -1101,15 +1102,28 @@ FILES:
         $vehicle = $request->query('vehicle');
         $phone = $request->query('phone');
         $userId = $this->currentUserId();
-        
+
         if (!$vehicle && !$phone) {
             return response()->json(['count' => 0]);
         }
 
         $query = JobCard::where('user_id', $userId)->where('stage', 'completed');
-        
+
         if ($vehicle) {
-            $query->where('vehicle', 'LIKE', '%' . $vehicle . '%');
+            $norm = $this->normalizePlate($vehicle);
+            if (strlen($norm) >= 3) {
+                $completed = $this->applyBranchFilter($query, $request)->pluck('vehicle');
+                $count = 0;
+                foreach ($completed as $jcVeh) {
+                    $normJc = $this->normalizePlate($jcVeh);
+                    if (strpos($normJc, $norm) !== false) {
+                        $count++;
+                    }
+                }
+                return response()->json(['count' => $count]);
+            } else {
+                $query->where('vehicle', 'LIKE', '%' . $vehicle . '%');
+            }
         } elseif ($phone) {
             $query->where('phone', $phone);
         }
@@ -1147,14 +1161,14 @@ FILES:
         ]);
 
         $userId = $this->currentUserId();
-        
+
         $branchId = $request->input('branch_id', $this->defaultBranchId());
 
         $exists = \App\Models\Service::where('user_id', $userId)
             ->where('branch_id', $branchId)
             ->where('name', $validated['name'])
             ->exists();
-            
+
         if ($exists) {
             return response()->json(['message' => 'A service with this name already exists.'], 422);
         }
@@ -1162,7 +1176,10 @@ FILES:
         // Products share the GST-inclusive price (after GST and service charge) equally — see ServicePricing
         $scRate = isset($validated['service_charge_rate']) ? (float) $validated['service_charge_rate'] : null;
         $validated['products'] = ServicePricing::allocateProducts(
-            $validated['products'] ?? [], (float) $validated['price'], CompanySetting::where('user_id', $userId)->first(), $scRate
+            $validated['products'] ?? [],
+            (float) $validated['price'],
+            CompanySetting::where('user_id', $userId)->first(),
+            $scRate
         );
 
         $service = Service::create(array_merge($validated, [
@@ -1190,13 +1207,13 @@ FILES:
 
         $userId = $this->currentUserId();
         $service = $this->applyBranchFilter(Service::where('user_id', $userId), request())->findOrFail($id);
-        
+
         $exists = \App\Models\Service::where('user_id', $userId)
             ->where('branch_id', $service->branch_id)
             ->where('name', $validated['name'])
             ->where('id', '!=', $id)
             ->exists();
-            
+
         if ($exists) {
             return response()->json(['message' => 'Another service with this name already exists.'], 422);
         }
@@ -1204,7 +1221,10 @@ FILES:
         // Products share the GST-inclusive price (after GST and service charge) equally — see ServicePricing
         $scRate = isset($validated['service_charge_rate']) ? (float) $validated['service_charge_rate'] : (float) ($service->service_charge_rate ?? 0);
         $validated['products'] = ServicePricing::allocateProducts(
-            $validated['products'] ?? [], (float) $validated['price'], CompanySetting::where('user_id', $userId)->first(), $scRate
+            $validated['products'] ?? [],
+            (float) $validated['price'],
+            CompanySetting::where('user_id', $userId)->first(),
+            $scRate
         );
 
         $service->update($validated);
@@ -1294,7 +1314,7 @@ FILES:
         ]);
 
         $userId = $this->currentUserId();
-        
+
         if (!empty($validated['employee_id'])) {
             $exists = \App\Models\Staff::where('user_id', $userId)
                 ->where('employee_id', $validated['employee_id'])
@@ -1308,13 +1328,13 @@ FILES:
         unset($staffData['date']);
         $staffData['user_id'] = $userId;
         $staffData['base_salary'] = $validated['base_salary'] ?? 0;
-        if (! Schema::hasColumn('staff', 'role')) {
+        if (!Schema::hasColumn('staff', 'role')) {
             unset($staffData['role']);
         }
-        if (! Schema::hasColumn('staff', 'is_active')) {
+        if (!Schema::hasColumn('staff', 'is_active')) {
             unset($staffData['is_active']);
         }
-        if (! Schema::hasColumn('staff', 'joined_at')) {
+        if (!Schema::hasColumn('staff', 'joined_at')) {
             unset($staffData['joined_at']);
         }
 
@@ -1374,7 +1394,7 @@ FILES:
         ]);
 
         $userId = $this->currentUserId();
-        
+
         if (!empty($validated['employee_id'])) {
             $exists = \App\Models\Staff::where('user_id', $userId)
                 ->where('employee_id', $validated['employee_id'])
@@ -1398,13 +1418,13 @@ FILES:
 
         $staffData = $validated;
         unset($staffData['date']);
-        if (! Schema::hasColumn('staff', 'role')) {
+        if (!Schema::hasColumn('staff', 'role')) {
             unset($staffData['role']);
         }
-        if (! Schema::hasColumn('staff', 'is_active')) {
+        if (!Schema::hasColumn('staff', 'is_active')) {
             unset($staffData['is_active']);
         }
-        if (! Schema::hasColumn('staff', 'joined_at')) {
+        if (!Schema::hasColumn('staff', 'joined_at')) {
             unset($staffData['joined_at']);
         }
         $staff->update($staffData);
@@ -1413,15 +1433,15 @@ FILES:
         if (isset($validated['role']) && $validated['role'] === 'manager') {
             $email = $request->input('email') ?: ($validated['phone'] . '@carwash.local');
             $branch = $this->applyBranchFilter(\App\Models\Branch::where('user_id', $userId), request())->where('name', $validated['branch'])->first();
-            
+
             $user = \App\Models\User::where('owner_id', $userId)
-                        ->where(function($q) use ($email, $validated) {
-                            $q->where('email', $email)
-                              ->orWhere('name', $validated['name']);
-                        })
-                        ->where('role', 'manager')
-                        ->first();
-            
+                ->where(function ($q) use ($email, $validated) {
+                    $q->where('email', $email)
+                        ->orWhere('name', $validated['name']);
+                })
+                ->where('role', 'manager')
+                ->first();
+
             $pass = $request->input('password') ?: null;
             if ($user) {
                 $updateData = [
@@ -1494,7 +1514,7 @@ FILES:
         }
 
         $userId = $this->currentUserId();
-        
+
         if (!empty($validated['employee_id'])) {
             $exists = \App\Models\Staff::where('user_id', $userId)
                 ->where('employee_id', $validated['employee_id'])
@@ -1506,7 +1526,7 @@ FILES:
         }
 
         $staff = $this->applyBranchFilter(Staff::where('user_id', $userId), request())->findOrFail($id);
-        
+
         // If this staff member was a manager, also delete their login account
         if ($staff->role === 'manager') {
             $userQuery = \App\Models\User::where('owner_id', $userId)->where('role', 'manager');
@@ -1517,7 +1537,7 @@ FILES:
             }
             $userQuery->delete();
         }
-        
+
         $staff->delete();
 
         return response()->json(['status' => 'success']);
@@ -1526,7 +1546,7 @@ FILES:
     public function getStaffMonthlyAttendance(Request $request, $id)
     {
         $userId = $this->currentUserId();
-        
+
         if (!empty($validated['employee_id'])) {
             $exists = \App\Models\Staff::where('user_id', $userId)
                 ->where('employee_id', $validated['employee_id'])
@@ -1544,7 +1564,7 @@ FILES:
 
         $records = StaffAttendance::where('user_id', $userId)
             ->where('staff_id', $staff->id)
-            ->where('date', 'like', $month.'-%')
+            ->where('date', 'like', $month . '-%')
             ->orderBy('date', 'asc')
             ->get();
 
@@ -1598,10 +1618,10 @@ FILES:
         $userId = $this->currentUserId();
         $expense = $this->applyBranchFilter(Expense::where('user_id', $userId), request())->findOrFail($id);
 
-        if (! Schema::hasColumn('expenses', 'branch_id')) {
+        if (!Schema::hasColumn('expenses', 'branch_id')) {
             unset($validated['branch_id']);
         }
-        
+
         $expense->update($validated);
         return response()->json($expense);
     }
@@ -1677,10 +1697,10 @@ FILES:
             Expense::create([
                 'user_id' => $userId,
                 'category' => 'inventory',
-                'name' => 'Purchase: '.$item->name,
+                'name' => 'Purchase: ' . $item->name,
                 'amount' => $totalCost,
                 'expense_date' => now()->toDateString(),
-                'notes' => 'Auto-generated expense from inventory purchase order (Stock: '.$item->stock.' @ Rs. '.$item->unit_cost.'/unit). Supplier: '.$item->supplier,
+                'notes' => 'Auto-generated expense from inventory purchase order (Stock: ' . $item->stock . ' @ Rs. ' . $item->unit_cost . '/unit). Supplier: ' . $item->supplier,
                 'ref_id' => $item->id,
             ]);
         }
@@ -1705,13 +1725,13 @@ FILES:
 
         $userId = $this->currentUserId();
         $item = $this->applyBranchFilter(InventoryItem::where('user_id', $userId), request())->findOrFail($id);
-        if (! Schema::hasColumn('inventory_items', 'unit')) {
+        if (!Schema::hasColumn('inventory_items', 'unit')) {
             unset($validated['unit']);
         }
-        if (! Schema::hasColumn('inventory_items', 'low_stock_alert')) {
+        if (!Schema::hasColumn('inventory_items', 'low_stock_alert')) {
             unset($validated['low_stock_alert']);
         }
-        if (! Schema::hasColumn('inventory_items', 'active')) {
+        if (!Schema::hasColumn('inventory_items', 'active')) {
             unset($validated['active']);
         }
         $item->update($validated);
@@ -1769,7 +1789,7 @@ FILES:
         ]);
 
         $userId = $this->currentUserId();
-        
+
         if (!empty($validated['vehicle'])) {
             $existingJc = \App\Models\JobCard::where('user_id', $userId)
                 ->whereIn('stage', ['assigned', 'inprogress'])
@@ -1779,9 +1799,9 @@ FILES:
                 return response()->json(['message' => 'Vehicle already in queue'], 422);
             }
         }
-        
+
         $booking = null;
-        if (! empty($validated['booking_id'])) {
+        if (!empty($validated['booking_id'])) {
             $booking = Booking::where('user_id', $userId)->find($validated['booking_id']);
         }
 
@@ -1834,17 +1854,17 @@ FILES:
 
         if ($booking) {
             $booking->update(['status' => 'inprogress']);
-            
+
             $bookingPhotos = glob(public_path("uploads/bookings/bk_{$booking->id}_before_*.jpg"));
             if ($bookingPhotos && count($bookingPhotos) > 0) {
                 $card->photos_before = count($bookingPhotos);
                 $card->save();
-                
+
                 $uploadDir = public_path('uploads/jobcards');
                 if (!file_exists($uploadDir)) {
                     mkdir($uploadDir, 0755, true);
                 }
-                
+
                 foreach ($bookingPhotos as $index => $photoPath) {
                     $idx = $index + 1;
                     $destPath = $uploadDir . "/jc_{$card->id}_before_{$idx}.jpg";
@@ -1876,7 +1896,7 @@ FILES:
 
         $userId = $this->currentUserId();
         $card = $this->applyBranchFilter(JobCard::where('user_id', $userId), request())->findOrFail($id);
-        
+
         $newStage = $validated['stage'] ?? $card->stage;
         $newBay = $validated['bay'] ?? $card->bay;
 
@@ -1893,17 +1913,17 @@ FILES:
         }
 
         $wasCompleted = $card->stage === 'completed';
-        if (($validated['stage'] ?? null) === 'completed' && Schema::hasColumn('job_cards', 'completed_at_at') && ! $card->completed_at_at) {
+        if (($validated['stage'] ?? null) === 'completed' && Schema::hasColumn('job_cards', 'completed_at_at') && !$card->completed_at_at) {
             $validated['completed_at_at'] = now();
         }
 
-        if (! Schema::hasColumn('job_cards', 'branch_id')) {
+        if (!Schema::hasColumn('job_cards', 'branch_id')) {
             unset($validated['branch_id']);
         }
-        if (! Schema::hasColumn('job_cards', 'started_at_at')) {
+        if (!Schema::hasColumn('job_cards', 'started_at_at')) {
             unset($validated['started_at_at']);
         }
-        if (! Schema::hasColumn('job_cards', 'completed_at_at')) {
+        if (!Schema::hasColumn('job_cards', 'completed_at_at')) {
             unset($validated['completed_at_at']);
         }
 
@@ -1912,10 +1932,10 @@ FILES:
 
         // Sync linked booking status
         $linkedBooking = null;
-        if (! empty($freshCard->booking_id)) {
+        if (!empty($freshCard->booking_id)) {
             $linkedBooking = Booking::where('user_id', $userId)->find($freshCard->booking_id);
         }
-        if (! $linkedBooking && ! empty($freshCard->phone) && ! empty($freshCard->vehicle)) {
+        if (!$linkedBooking && !empty($freshCard->phone) && !empty($freshCard->vehicle)) {
             // Extract the plate from the vehicle string (e.g. "KL90445 (Sedan)")
             $plate = explode(' ', $freshCard->vehicle)[0];
             $linkedBooking = $this->applyBranchFilter(Booking::where('user_id', $userId), request())
@@ -1939,14 +1959,14 @@ FILES:
 
         $billingInvoice = null;
 
-        if (($validated['stage'] ?? null) === 'completed' && ! $wasCompleted) {
+        if (($validated['stage'] ?? null) === 'completed' && !$wasCompleted) {
             $billingInvoice = $this->createBillingInvoiceForJobCard($freshCard);
-            
+
             // Send WhatsApp message if phone is provided
             if (filled($freshCard->phone) && class_exists('\App\Models\WhatsappChat')) {
                 $customerName = $freshCard->customer ?: 'Customer';
-                $initials = \Illuminate\Support\Str::of($customerName)->trim()->explode(' ')->map(fn ($part) => \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($part, 0, 1)))->join('');
-                
+                $initials = \Illuminate\Support\Str::of($customerName)->trim()->explode(' ')->map(fn($part) => \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($part, 0, 1)))->join('');
+
                 \App\Models\WhatsappChat::create([
                     'user_id' => $userId,
                     'name' => $customerName,
@@ -1982,7 +2002,7 @@ FILES:
 
         if ($request->hasFile('photo')) {
             $type = $request->input('type');
-            
+
             if ($type === 'before') {
                 $nextIndex = $card->photos_before + 1;
                 $filename = "jc_{$card->id}_before_{$nextIndex}.jpg";
@@ -1999,7 +2019,7 @@ FILES:
             }
 
             $dir = public_path('uploads/jobcards');
-            if (! file_exists($dir)) {
+            if (!file_exists($dir)) {
                 mkdir($dir, 0755, true);
             }
 
@@ -2023,13 +2043,13 @@ FILES:
         $invoices = $query->orderBy('id', 'desc')->get();
 
         $jobCards = \App\Models\JobCard::where('user_id', $userId)
-                ->where('stage', 'completed')
-                ->pluck('vehicle');
+            ->where('stage', 'completed')
+            ->pluck('vehicle');
 
         $lastWashByPlate = Vehicle::where('user_id', $userId)
-                ->whereNotNull('plate')
-                ->get(['plate', 'last_wash'])
-                ->mapWithKeys(fn ($v) => [strtolower($v->plate) => $v->last_wash]);
+            ->whereNotNull('plate')
+            ->get(['plate', 'last_wash'])
+            ->mapWithKeys(fn($v) => [strtolower($v->plate) => $v->last_wash]);
 
         $services = Service::where('user_id', $userId)->get(['name', 'products']);
         $servicesMap = [];
@@ -2157,7 +2177,7 @@ FILES:
         if (isset($validated['status'])) {
             $invoice->status = $validated['status'];
             $invoice->payment_status = $validated['status'];
-            if ($validated['status'] === 'paid' && ! $invoice->paid_at) {
+            if ($validated['status'] === 'paid' && !$invoice->paid_at) {
                 $invoice->paid_at = $validated['paid_at'] ?? now();
             }
         }
@@ -2165,7 +2185,7 @@ FILES:
         if (isset($validated['payment_status'])) {
             $invoice->payment_status = $validated['payment_status'];
             $invoice->status = $validated['payment_status'];
-            if ($validated['payment_status'] === 'paid' && ! $invoice->paid_at) {
+            if ($validated['payment_status'] === 'paid' && !$invoice->paid_at) {
                 $invoice->paid_at = $validated['paid_at'] ?? now();
             }
         }
@@ -2177,7 +2197,7 @@ FILES:
         if (array_key_exists('payment_reference', $validated)) {
             $invoice->payment_reference = $validated['payment_reference'];
         }
-        
+
         if (array_key_exists('split_cash', $validated)) {
             $invoice->split_cash = $validated['split_cash'];
         }
@@ -2189,7 +2209,7 @@ FILES:
         if (array_key_exists('discount_amount', $validated)) {
             $invoice->discount_amount = $validated['discount_amount'];
         }
-        
+
         if (array_key_exists('amount', $validated)) {
             $invoice->amount = $validated['amount'];
         }
@@ -2245,7 +2265,7 @@ FILES:
         if (Schema::hasColumn('invoices', 'job_card_id')) {
             $existing = $this->applyBranchFilter(Invoice::where('user_id', $userId), request())->where('job_card_id', $card->id)->first();
             if ($existing) {
-                if (Schema::hasColumn('job_cards', 'invoice_id') && ! filled($card->invoice_id)) {
+                if (Schema::hasColumn('job_cards', 'invoice_id') && !filled($card->invoice_id)) {
                     $card->forceFill(['invoice_id' => $existing->id])->save();
                 }
 
@@ -2340,7 +2360,7 @@ FILES:
         $notificationData = [
             'user_id' => $userId,
             'icon' => 'report-money',
-            'title' => 'Billing created for #'.$card->id,
+            'title' => 'Billing created for #' . $card->id,
             'time' => 'just now',
             'read' => false,
         ];
@@ -2464,7 +2484,7 @@ FILES:
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,'.$manager->id,
+            'email' => 'required|string|email|max:255|unique:users,email,' . $manager->id,
             'password' => 'nullable|string|min:6',
             'assigned_branch_id' => 'nullable|exists:branches,id',
         ]);
@@ -2475,7 +2495,7 @@ FILES:
             'assigned_branch_id' => $validated['assigned_branch_id'] ?? null,
         ];
 
-        if (! empty($validated['password'])) {
+        if (!empty($validated['password'])) {
             $updateData['password'] = Hash::make($validated['password']);
         }
 
@@ -2514,11 +2534,11 @@ FILES:
     {
         $customer = null;
 
-        if (! empty($validated['phone'])) {
+        if (!empty($validated['phone'])) {
             $customer = $this->applyBranchFilter(Customer::where('user_id', $userId), request())->where('phone', $validated['phone'])->first();
         }
 
-        if (! $customer) {
+        if (!$customer) {
             $customer = $this->applyBranchFilter(Customer::where('user_id', $userId), request())->where('name', $validated['customer'])->first();
         }
 
@@ -2527,7 +2547,7 @@ FILES:
         }
 
         return Customer::create([
-        'branch_id' => $this->defaultBranchId(),
+            'branch_id' => $this->defaultBranchId(),
             'user_id' => $userId,
             'name' => $validated['customer'],
             'phone' => $validated['phone'] ?? '',
@@ -2546,12 +2566,12 @@ FILES:
 
     private function syncVehicleFromBooking(array $validated, ?int $customerId, $userId): void
     {
-        if (! $customerId || empty($validated['vehicle'])) {
+        if (!$customerId || empty($validated['vehicle'])) {
             return;
         }
 
         $vehicleName = $validated['vehicle'];
-        $vehiclePlate = ! empty($validated['vehicle_plate']) ? trim($validated['vehicle_plate']) : null;
+        $vehiclePlate = !empty($validated['vehicle_plate']) ? trim($validated['vehicle_plate']) : null;
 
         $query = Vehicle::where('user_id', $userId)->where('customer_id', $customerId);
         if ($vehiclePlate) {
@@ -2574,12 +2594,12 @@ FILES:
                 $plate = $vehicleName;
                 $brand = 'Unknown Vehicle';
             } else {
-                $plate = 'KL-'.rand(10, 86).'-'.chr(rand(65, 90)).chr(rand(65, 90)).'-'.rand(1000, 9999);
+                $plate = 'KL-' . rand(10, 86) . '-' . chr(rand(65, 90)) . chr(rand(65, 90)) . '-' . rand(1000, 9999);
             }
         }
 
         Vehicle::create([
-        'branch_id' => $this->defaultBranchId(),
+            'branch_id' => $this->defaultBranchId(),
             'user_id' => $userId,
             'plate' => $plate,
             'customer_id' => $customerId,
@@ -2600,14 +2620,14 @@ FILES:
             'user_id' => $userId,
             'icon' => 'bell',
             'type' => 'booking_created',
-            'title' => 'New booking for '.$booking->customer,
+            'title' => 'New booking for ' . $booking->customer,
             'time' => 'just now',
             'read' => false,
             'link' => '/bookings',
             'branch_id' => $booking->branch_id,
         ]);
 
-        if (! $customer) {
+        if (!$customer) {
             return;
         }
 
@@ -2617,8 +2637,8 @@ FILES:
                 'name' => $customer->name,
                 'customer_id' => $customer->id,
                 'branch_id' => $booking->branch_id,
-                'initials' => Str::of($customer->name)->trim()->explode(' ')->map(fn ($part) => Str::upper(Str::substr($part, 0, 1)))->join(''),
-                'msg' => 'Booking confirmed for '.$booking->time_label,
+                'initials' => Str::of($customer->name)->trim()->explode(' ')->map(fn($part) => Str::upper(Str::substr($part, 0, 1)))->join(''),
+                'msg' => 'Booking confirmed for ' . $booking->time_label,
                 'time' => 'just now',
                 'phone' => $customer->phone,
                 'opt_in' => true,
@@ -2660,7 +2680,7 @@ FILES:
                     ->where('link', '/jobcards?booking_id=' . $booking->id)
                     ->exists();
 
-                if (! $alreadyNotified) {
+                if (!$alreadyNotified) {
                     Notification::create([
                         'user_id' => $userId,
                         'branch_id' => $booking->branch_id,
@@ -2681,9 +2701,9 @@ FILES:
     private function buildMembershipLabel(string $plan): string
     {
         return match ($plan) {
-            'platinum' => 'Platinum · 4 washes remaining · Expires '.date('d M', strtotime('+30 days')).' · Auto-renew on',
-            'gold' => 'Gold · 2 washes remaining · Expires '.date('d M', strtotime('+30 days')).' · Auto-renew off',
-            'silver' => 'Silver · 1 wash remaining · Expires '.date('d M', strtotime('+30 days')).' · Auto-renew on',
+            'platinum' => 'Platinum · 4 washes remaining · Expires ' . date('d M', strtotime('+30 days')) . ' · Auto-renew on',
+            'gold' => 'Gold · 2 washes remaining · Expires ' . date('d M', strtotime('+30 days')) . ' · Auto-renew off',
+            'silver' => 'Silver · 1 wash remaining · Expires ' . date('d M', strtotime('+30 days')) . ' · Auto-renew on',
             default => 'No active membership',
         };
     }
@@ -2704,7 +2724,7 @@ FILES:
         $slug = Str::of($name)->upper()->replaceMatches('/[^A-Z0-9]+/', '')->substr(0, 3)->toString();
         $slug = $slug !== '' ? $slug : 'BR';
 
-        return $slug.'-'.str_pad((string) (Branch::count() + 1), 2, '0', STR_PAD_LEFT);
+        return $slug . '-' . str_pad((string) (Branch::count() + 1), 2, '0', STR_PAD_LEFT);
     }
 
     private function nextJobCardId(): string
@@ -2716,18 +2736,18 @@ FILES:
             $nextNum = (int) $matches[1] + 1;
         }
 
-        return 'JC-'.$nextNum;
+        return 'JC-' . $nextNum;
     }
 
     private function nextInvoiceNumber(): string
     {
         $period = now()->format('Ym');
-        $lastInvoiceNumber = Invoice::where('invoice_number', 'like', 'INV-'.$period.'-%')
+        $lastInvoiceNumber = Invoice::where('invoice_number', 'like', 'INV-' . $period . '-%')
             ->orderByDesc('invoice_number')
             ->value('invoice_number');
 
         $nextSequence = 1;
-        if (is_string($lastInvoiceNumber) && preg_match('/INV-'.$period.'-(\d+)/', $lastInvoiceNumber, $matches)) {
+        if (is_string($lastInvoiceNumber) && preg_match('/INV-' . $period . '-(\d+)/', $lastInvoiceNumber, $matches)) {
             $nextSequence = (int) $matches[1] + 1;
         }
 
@@ -2742,7 +2762,8 @@ FILES:
         }
         if (request()->filled('branch_code')) {
             $branch = Branch::where('user_id', $this->currentUserId())->where('code', request()->input('branch_code'))->first();
-            if ($branch) return $branch->id;
+            if ($branch)
+                return $branch->id;
         }
         return Branch::where('active', true)->orderBy('id')->value('id');
     }
@@ -2751,14 +2772,16 @@ FILES:
     {
         $request->validate(['photo' => 'required|image|max:2048']);
         $staff = Staff::where('user_id', $this->currentUserId())->findOrFail($id);
-        
+
         $dir = public_path('uploads/staff/photos');
-        if (!file_exists($dir)) { mkdir($dir, 0755, true); }
+        if (!file_exists($dir)) {
+            mkdir($dir, 0755, true);
+        }
         $file = $request->file('photo');
         $filename = uniqid() . '.' . $file->getClientOriginalExtension();
         $file->move($dir, $filename);
         $path = 'uploads/staff/photos/' . $filename;
-        
+
         $staff->update(['photo' => $path]);
         return response()->json(['message' => 'Photo uploaded', 'path' => $path]);
     }
@@ -2770,14 +2793,16 @@ FILES:
             'type' => 'required|string|in:id_proof,pcc'
         ]);
         $staff = Staff::where('user_id', $this->currentUserId())->findOrFail($id);
-        
+
         $dir = public_path('uploads/staff/documents');
-        if (!file_exists($dir)) { mkdir($dir, 0755, true); }
+        if (!file_exists($dir)) {
+            mkdir($dir, 0755, true);
+        }
         $file = $request->file('document');
         $filename = uniqid() . '.' . $file->getClientOriginalExtension();
         $file->move($dir, $filename);
         $path = 'uploads/staff/documents/' . $filename;
-        
+
         if ($request->input('type') === 'id_proof') {
             $staff->update(['id_proof_path' => $path]);
         } else {
@@ -2786,18 +2811,20 @@ FILES:
         return response()->json(['message' => 'Document uploaded', 'path' => $path]);
     }
 
-    public function getBays(Request $request) {
+    public function getBays(Request $request)
+    {
         $userId = $this->currentUserId();
         $query = \App\Models\Bay::where('user_id', $userId);
         $query = $this->applyBranchFilter($query, $request);
         return response()->json($query->orderBy('created_at', 'asc')->get());
     }
 
-    public function createBay(Request $request) {
+    public function createBay(Request $request)
+    {
         $validated = $request->validate([
             'name' => 'required|string|max:255'
         ]);
-        
+
         $userId = $this->currentUserId();
         $validated['user_id'] = $userId;
         $validated['branch_id'] = $validated['branch_id'] ?? $this->defaultBranchId();
@@ -2806,7 +2833,7 @@ FILES:
             ->where('branch_id', $validated['branch_id'])
             ->where('name', $validated['name'])
             ->exists();
-            
+
         if ($exists) {
             return response()->json(['message' => 'A bay with this name already exists.'], 422);
         }
@@ -2815,7 +2842,8 @@ FILES:
         return response()->json($bay, 201);
     }
 
-    public function deleteBay($id) {
+    public function deleteBay($id)
+    {
         $bay = $this->applyBranchFilter(\App\Models\Bay::where('user_id', $this->currentUserId()), request())->findOrFail($id);
         $bay->delete();
         return response()->json(['message' => 'Deleted successfully']);
@@ -2874,23 +2902,23 @@ FILES:
     {
         $userId = $this->currentUserId();
         $settings = \App\Models\CompanySetting::firstOrCreate(['user_id' => $userId]);
-        
+
         $data = $request->except(['company_logo', 'upi_qr_code', 'signature']);
-        
+
         if ($request->hasFile('company_logo')) {
             $file = $request->file('company_logo');
             $filename = 'logo_' . $userId . '_' . time() . '.' . $file->getClientOriginalExtension();
             $file->move(public_path('uploads/settings'), $filename);
             $data['company_logo'] = 'uploads/settings/' . $filename;
         }
-        
+
         if ($request->hasFile('upi_qr_code')) {
             $file = $request->file('upi_qr_code');
             $filename = 'qr_' . $userId . '_' . time() . '.' . $file->getClientOriginalExtension();
             $file->move(public_path('uploads/settings'), $filename);
             $data['upi_qr_code'] = 'uploads/settings/' . $filename;
         }
-        
+
         if ($request->hasFile('signature')) {
             $file = $request->file('signature');
             $filename = 'sig_' . $userId . '_' . time() . '.' . $file->getClientOriginalExtension();
