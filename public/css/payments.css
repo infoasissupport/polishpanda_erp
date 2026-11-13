@@ -146,11 +146,12 @@ overflow: auto;
 
 /* ---------- Table: dark rounded header + card rows ---------- */
 #payments .table-wrap{border:1px solid #eef0f3;border-radius:14px;background:#fff;}
-#payments .table-scroll{border:none;border-radius:10px 10px 0 0;padding:8px 8px 0;}
+#payments .table-scroll{border:none;border-radius:10px 10px 0 0;padding:8px 8px 0;overflow-y:auto;}
 #payments .table-scroll table{border-collapse:separate;border-spacing:0 8px;}
 #payments .table-scroll thead th{
   background:#111418;color:#fff;font-size:11px;font-weight:700;letter-spacing:.02em;line-height:1.25;
   padding:14px 6px;border-bottom:none;white-space:normal;
+  position:sticky;top:0;z-index:2;
 }
 #payments .table-scroll thead th.col-num,#payments .table-scroll thead th:nth-child(2){white-space:nowrap;}
 #payments .table-scroll thead tr th:first-child{border-radius:10px 0 0 10px;padding-left:10px;}
@@ -168,6 +169,7 @@ overflow: auto;
 #payments .col-num{width:28px;text-align:center;color:#667085!important;}
 
 #invoiceTableBody .inv-id{font-weight:600;white-space:nowrap;}
+#invoiceTableBody .inv-phone{white-space:nowrap;color:#344054;}
 #invoiceTableBody .inv-veh-no{white-space:nowrap;text-transform:uppercase;}
 #invoiceTableBody .inv-veh-model{text-transform:capitalize;}
 #invoiceTableBody .inv-amount{white-space:nowrap;font-weight:500;}
@@ -366,6 +368,7 @@ section#payments .view-header{
   #payments .table-scroll thead th{
     background:#fafafb;color:#000;font-size:14px;font-weight:900;text-transform:capitalize;letter-spacing:.06em;
     padding:14px 12px;border-bottom:1px solid #eef0f3;white-space:nowrap;
+    position:sticky;top:0;z-index:2;
   }
   #payments .table-scroll thead tr th:first-child{border-radius:16px 0 0 0;padding-left:16px;}
   #payments .table-scroll thead tr th:last-child{border-radius:0 16px 0 0;padding-right:16px;}
@@ -536,7 +539,7 @@ margin: 0;
 
 /* ---- Table (desktop): readable header, roomy rows, chevron per row ---- */
 @media (min-width:1200px){
-  #payments .table-scroll thead th{background:#f8f9fb;color:#101828;font-size:13px;font-weight:700;text-transform:none;letter-spacing:0;padding:15px 12px;}
+  #payments .table-scroll thead th{background:#f8f9fb;color:#101828;font-size:13px;font-weight:700;text-transform:none;letter-spacing:0;padding:15px 12px;position:sticky;top:0;z-index:2;}
   #invoiceTableBody td,#invoiceTableBody td:first-child,#invoiceTableBody td:last-child{padding:15px 12px;}
   #invoiceTableBody td:first-child{padding-left:16px;}
   #invoiceTableBody td:last-child{position:relative;padding-right:44px;}
@@ -595,7 +598,7 @@ margin: 0;
 
 /* total band */
 #payments .inv-preview-total{
-  margin:0 20px 14px;padding:15px 18px;border-radius:12px;
+  margin:0 20px 14px;padding:7px 18px;border-radius:12px;
   text-transform:none;letter-spacing:0;font-size:17px;font-weight:600;
   box-shadow:0 10px 22px -12px rgba(227,18,27,.8);
 }

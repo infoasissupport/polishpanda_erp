@@ -1554,7 +1554,7 @@
 #leadsView .sw-pager .page-num.active{background:var(--accent);color:#fff;box-shadow:0 4px 10px -4px rgba(227,18,27,.7);}
 .table-wrap {
   & .table-scroll {
-    height: calc(100dvh - 468px - var(--shell-extra, 0px)) !important;
+    height: 100% !important;
   }
 }
 /* ---- Table polish: nothing wraps awkwardly; the table scrolls sideways instead of squeezing cells ---- */
@@ -1685,7 +1685,7 @@
 .ins-dd--icons .ins-dd-opt.active .ins-dd-opt-text strong{font-weight:700;}
 
 /* ---- Search + filters: same as the other pages (42px, rounded, red icon, red focus ring) ---- */
-#leadsView .leads-toolbar{gap:10px;margin-bottom:0;}
+#leadsView .leads-toolbar{gap:10px;margin-bottom:10px;}
 #leadsView .leads-search-box{height:42px;padding:0 14px;gap:10px;border:1px solid #e4e7ec;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.05);}
 #leadsView .leads-search-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(227,18,27,.12);}
 #leadsView .leads-search-box .ti{color:var(--accent);font-size:17px;}

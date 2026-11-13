@@ -20,7 +20,7 @@ body[data-page="login"], body[data-page="sign-up"]{ overflow:auto; background:#0
 
 /* full-frame photo; dark fades on the left and top keep the text readable */
 .fp-scene{ position:absolute; inset:0; z-index:-1;
-  background:#0a0a0c url("../images/login-polish-panda-bg.jpg") 60% 60%/cover no-repeat; }
+  background:#0a0a0c url("../images/login-img-bg.png") 60% 60%/cover no-repeat; }
 .fp-scene::before{ content:""; position:absolute; inset:0;
   background:
     radial-gradient(24% 26% at 39% 27%, rgba(10,10,12,.88), rgba(10,10,12,.5) 60%, rgba(10,10,12,0)),

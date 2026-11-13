@@ -122,6 +122,9 @@
     if (card.stage === 'inprogress') {
       return '<button type="button" class="btn jc-action-btn" data-action="view" style="color:' + color.text + ';border-color:' + color.text + ';">View Progress<i class="ti ti-chevron-down" style="transform:rotate(-90deg);display:inline-block;"></i></button>';
     }
+    if (card.invoice && card.invoice.status === 'paid') {
+      return '<button type="button" class="btn jc-action-btn" disabled style="color:#166534;border-color:#166534;opacity:0.8;cursor:default;"><i class="ti ti-circle-check"></i>Payment Completed</button>';
+    }
     return '<button type="button" class="btn jc-action-btn" data-action="pay" style="color:' + color.text + ';border-color:' + color.text + ';"><i class="ti ti-credit-card"></i>Make Payment</button>';
   }
 
@@ -605,7 +608,11 @@
     } else if (card.stage === 'inprogress') {
       html += '<button type="button" class="btn btn-accent" id="jcAdvanceBtn"><i class="ti ti-check"></i>Completed</button>';
     } else if (card.stage === 'completed') {
-      html += '<button type="button" class="btn btn-accent" id="jcPayBtn"><i class="ti ti-credit-card"></i>Make Payment</button>';
+      if (card.invoice && card.invoice.status === 'paid') {
+        html += '<button type="button" class="btn btn-accent" disabled style="opacity:0.8;cursor:default;" id="jcPayBtn"><i class="ti ti-circle-check"></i>Payment Completed</button>';
+      } else {
+        html += '<button type="button" class="btn btn-accent" id="jcPayBtn"><i class="ti ti-credit-card"></i>Make Payment</button>';
+      }
     }
     detailFooter.innerHTML = html;
     detailFooter.style.display = 'flex';
