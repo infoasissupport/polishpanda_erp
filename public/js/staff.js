@@ -123,12 +123,37 @@
     return hours + minutes / 60;
   }
 
+  function formatCheckInTime(timeStr) {
+    if (!timeStr) return '';
+    var str = String(timeStr).trim();
+    if (/am|pm/i.test(str)) return str;
+    var parts = str.split(':');
+    if (parts.length >= 2) {
+      var h = parseInt(parts[0], 10);
+      var m = parts[1];
+      if (isNaN(h)) return str;
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      h = h ? h : 12;
+      return h + ':' + m + ' ' + ampm;
+    }
+    return str;
+  }
+
+  function getCurrentTimeHHMM() {
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2, '0');
+    var mm = String(now.getMinutes()).padStart(2, '0');
+    return hh + ':' + mm;
+  }
+
   function attendanceMeta(s) {
+    var checkInVal = formatCheckInTime(s.check_in_time || s.check_in);
     if (s.attendance === 'present') {
-      return { cls: 'present', label: 'Present', sub: s.check_in ? 'Check in: ' + s.check_in : 'Check in: —' };
+      return { cls: 'present', label: 'Present', sub: checkInVal ? 'Check in: ' + checkInVal : 'Check in: —' };
     }
     if (s.attendance === 'late') {
-      return { cls: 'late', label: 'Late', sub: s.check_in ? 'Check in: ' + s.check_in : 'Late arrival' };
+      return { cls: 'late', label: 'Late', sub: checkInVal ? 'Check in: ' + checkInVal : 'Late arrival' };
     }
     if (s.attendance === 'on_leave') {
       return { cls: 'leave', label: 'On Leave', sub: s.leave_type || 'On leave' };
@@ -785,24 +810,41 @@
       STAFF.forEach(function (s) {
         var row = document.createElement('div');
         row.className = 'attendance-row';
+        var isPresentOrLate = (s.attendance === 'present' || s.attendance === 'late');
+        var timeVal = '';
+        if (s.check_in_time) {
+          timeVal = String(s.check_in_time).substring(0, 5);
+        } else if (isPresentOrLate) {
+          timeVal = getCurrentTimeHHMM();
+        }
+
         row.innerHTML =
           '<div class="attendance-staff-info">' +
             '<div class="attendance-staff-name">' + escapeHtml(s.name) + '</div>' +
             '<div class="attendance-staff-meta">' + escapeHtml(s.branch) + ' · ' + escapeHtml(s.shift) + '</div>' +
           '</div>' +
-          '<div class="attendance-segmented" data-staff-id="' + s.id + '">' +
-            '<label class="present-label ' + (s.attendance === 'present' ? 'active-present' : '') + '">' +
-              '<input type="radio" name="att_' + s.id + '" value="present" ' + (s.attendance === 'present' ? 'checked' : '') + '> Present' +
-            '</label>' +
-            '<label class="late-label ' + (s.attendance === 'late' ? 'active-late' : '') + '">' +
-              '<input type="radio" name="att_' + s.id + '" value="late" ' + (s.attendance === 'late' ? 'checked' : '') + '> Late' +
-            '</label>' +
-            '<label class="absent-label ' + (s.attendance === 'absent' ? 'active-absent' : '') + '">' +
-              '<input type="radio" name="att_' + s.id + '" value="absent" ' + (s.attendance === 'absent' ? 'checked' : '') + '> Absent' +
-            '</label>' +
+          '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+            '<div class="attendance-time-wrap" data-staff-id="' + s.id + '" style="display: ' + (isPresentOrLate ? 'inline-flex' : 'none') + '; align-items: center; gap: 4px;">' +
+              '<span style="font-size: 11.5px; color: #64748b; font-weight: 500;">Time:</span>' +
+              '<input type="time" class="time-in-input" data-staff-id="' + s.id + '" value="' + timeVal + '" style="height: 32px; padding: 0 6px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #1e293b;">' +
+            '</div>' +
+            '<div class="attendance-segmented" data-staff-id="' + s.id + '">' +
+              '<label class="present-label ' + (s.attendance === 'present' ? 'active-present' : '') + '">' +
+                '<input type="radio" name="att_' + s.id + '" value="present" ' + (s.attendance === 'present' ? 'checked' : '') + '> Present' +
+              '</label>' +
+              '<label class="late-label ' + (s.attendance === 'late' ? 'active-late' : '') + '">' +
+                '<input type="radio" name="att_' + s.id + '" value="late" ' + (s.attendance === 'late' ? 'checked' : '') + '> Late' +
+              '</label>' +
+              '<label class="absent-label ' + (s.attendance === 'absent' ? 'active-absent' : '') + '">' +
+                '<input type="radio" name="att_' + s.id + '" value="absent" ' + (s.attendance === 'absent' ? 'checked' : '') + '> Absent' +
+              '</label>' +
+            '</div>' +
           '</div>';
 
         var labels = row.querySelectorAll('.attendance-segmented label');
+        var timeWrap = row.querySelector('.attendance-time-wrap');
+        var timeInput = row.querySelector('.time-in-input');
+
         labels.forEach(function (label) {
           var radio = label.querySelector('input');
           radio.addEventListener('change', function () {
@@ -810,10 +852,21 @@
               lbl.classList.remove('active-present', 'active-late', 'active-absent', 'active-leave');
             });
             if (this.checked) {
-              if (this.value === 'present') label.classList.add('active-present');
-              else if (this.value === 'late') label.classList.add('active-late');
-              else if (this.value === 'absent') label.classList.add('active-absent');
-              else label.classList.add('active-leave');
+              if (this.value === 'present') {
+                label.classList.add('active-present');
+                if (timeWrap) timeWrap.style.display = 'inline-flex';
+                if (timeInput && !timeInput.value) timeInput.value = getCurrentTimeHHMM();
+              } else if (this.value === 'late') {
+                label.classList.add('active-late');
+                if (timeWrap) timeWrap.style.display = 'inline-flex';
+                if (timeInput && !timeInput.value) timeInput.value = getCurrentTimeHHMM();
+              } else if (this.value === 'absent') {
+                label.classList.add('active-absent');
+                if (timeWrap) timeWrap.style.display = 'none';
+              } else {
+                label.classList.add('active-leave');
+                if (timeWrap) timeWrap.style.display = 'none';
+              }
             }
           });
         });
@@ -844,10 +897,12 @@
         var timeIn = document.querySelector('.time-in-input[data-staff-id="' + id + '"]');
         var timeOut = document.querySelector('.time-out-input[data-staff-id="' + id + '"]');
         if (checkedRadio) {
+          var val = checkedRadio.value;
+          var inTime = (val === 'present' || val === 'late') ? (timeIn && timeIn.value ? timeIn.value : getCurrentTimeHHMM()) : null;
           attendanceData.push({ 
             id: id, 
-            status: checkedRadio.value,
-            check_in_time: timeIn ? timeIn.value : null,
+            status: val,
+            check_in_time: inTime,
             check_out_time: timeOut ? timeOut.value : null
           });
         }

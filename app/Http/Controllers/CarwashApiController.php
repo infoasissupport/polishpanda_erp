@@ -1272,9 +1272,16 @@ FILES:
         foreach ($staffList as $staff) {
             $staff->paid_this_month = $expenses[$staff->id] ?? 0;
             if (isset($attendance[$staff->id])) {
-                $staff->attendance = $attendance[$staff->id]->status;
-                $staff->check_in_time = $attendance[$staff->id]->check_in_time;
-                $staff->check_out_time = $attendance[$staff->id]->check_out_time;
+                $attRecord = $attendance[$staff->id];
+                $staff->attendance = $attRecord->status;
+                $checkIn = $attRecord->check_in_time;
+                if (empty($checkIn) && in_array($attRecord->status, ['present', 'late'])) {
+                    $checkIn = $attRecord->created_at ? $attRecord->created_at->format('H:i:s') : now()->format('H:i:s');
+                    $attRecord->check_in_time = $checkIn;
+                    $attRecord->save();
+                }
+                $staff->check_in_time = $checkIn;
+                $staff->check_out_time = $attRecord->check_out_time;
             } else {
                 $staff->attendance = 'absent';
                 $staff->check_in_time = null;
@@ -1359,9 +1366,13 @@ FILES:
         }
         // Record attendance for selected date
         $date = $request->input('date') ?: today()->toDateString();
+        $inTime = in_array($validated['attendance'], ['present', 'late']) ? now()->format('H:i:s') : null;
         StaffAttendance::updateOrCreate(
             ['user_id' => $userId, 'staff_id' => $staff->id, 'date' => $date],
-            ['status' => $validated['attendance']]
+            [
+                'status' => $validated['attendance'],
+                'check_in_time' => $inTime,
+            ]
         );
 
         $staff->attendance = $validated['attendance'];
@@ -1410,10 +1421,27 @@ FILES:
         $date = $request->input('date') ?: today()->toDateString();
         $status = $validated['attendance'];
 
+        $existingAtt = StaffAttendance::where('user_id', $userId)
+            ->where('staff_id', $staff->id)
+            ->whereDate('date', $date)
+            ->first();
+
+        $inTime = $request->input('check_in_time');
+        if (in_array($status, ['present', 'late'])) {
+            if (empty($inTime)) {
+                $inTime = $existingAtt?->check_in_time ?: now()->format('H:i:s');
+            }
+        } else {
+            $inTime = null;
+        }
+
         // Save to staff_attendance table
         StaffAttendance::updateOrCreate(
             ['user_id' => $userId, 'staff_id' => $staff->id, 'date' => $date],
-            ['status' => $status]
+            [
+                'status' => $status,
+                'check_in_time' => $inTime,
+            ]
         );
 
         $staffData = $validated;
@@ -1485,14 +1513,27 @@ FILES:
         $date = $validated['date'];
 
         foreach ($validated['attendance'] as $item) {
-            // Update staff_attendance log
+            $status = $item['status'];
             $inTime = (!empty($item['check_in_time'])) ? $item['check_in_time'] : null;
             $outTime = (!empty($item['check_out_time'])) ? $item['check_out_time'] : null;
+
+            if (in_array($status, ['present', 'late'])) {
+                if (empty($inTime)) {
+                    $existing = StaffAttendance::where('user_id', $userId)
+                        ->where('staff_id', $item['id'])
+                        ->whereDate('date', $date)
+                        ->first();
+                    $inTime = $existing?->check_in_time ?: now()->format('H:i:s');
+                }
+            } else {
+                $inTime = null;
+                $outTime = null;
+            }
 
             StaffAttendance::updateOrCreate(
                 ['user_id' => $userId, 'staff_id' => $item['id'], 'date' => $date],
                 [
-                    'status' => $item['status'],
+                    'status' => $status,
                     'check_in_time' => $inTime,
                     'check_out_time' => $outTime,
                 ]
@@ -1501,7 +1542,7 @@ FILES:
             // Also sync to staff fallback column
             Staff::where('user_id', $userId)
                 ->where('id', $item['id'])
-                ->update(['attendance' => $item['status']]);
+                ->update(['attendance' => $status]);
         }
 
         return response()->json(['message' => 'Attendance updated successfully']);
