@@ -23,7 +23,23 @@
       $lines[] = ['name' => 'Service charge',
                   'hsn' => '998714', 'qty' => 1, 'unit' => '-', 'rate' => (float) $breakdown['serviceCharge'], 'sub' => !empty($serviceProducts)];
     }
-    if ($item_price > 0 && !empty($invoice->item_name)) {
+    if (!empty($items)) {
+      foreach ($items as $it) {
+        $iq = max(1, (float) ($it['quantity'] ?? 1));
+        $itPrice = (float) ($it['price'] ?? 0);
+        $itTotal = round($itPrice * $iq, 2);
+        $share = $item_total > 0 ? ($itTotal / $item_total) : (count($items) > 0 ? 1 / count($items) : 0);
+        $itTaxable = round(($breakdown['itemTaxable'] ?? 0) * $share, 2);
+        $lines[] = [
+          'name' => $it['name'] ?? 'Item',
+          'hsn' => $it['hsn_sac'] ?? ($it['hsn_code'] ?? ($it['hsn'] ?? '')),
+          'qty' => $iq,
+          'unit' => $it['unit'] ?? '-',
+          'rate' => $iq > 0 ? ($itTaxable / $iq) : $itTaxable,
+          'sub' => false,
+        ];
+      }
+    } elseif ($item_price > 0 && !empty($invoice->item_name)) {
       $iq = max(1, (float) ($item_quantity ?? 1));
       $lines[] = ['name' => $invoice->item_name, 'hsn' => '', 'qty' => $iq, 'unit' => '-', 'rate' => (float) $breakdown['itemTaxable'] / $iq];
     }
@@ -43,7 +59,20 @@
     } else {
       $lines[] = ['name' => $invoice->service, 'hsn' => '', 'qty' => 1, 'unit' => '-', 'rate' => (float) $servicePrice];
     }
-    if ($item_price > 0 && !empty($invoice->item_name)) {
+    if (!empty($items)) {
+      foreach ($items as $it) {
+        $iq = max(1, (float) ($it['quantity'] ?? 1));
+        $itPrice = (float) ($it['price'] ?? 0);
+        $lines[] = [
+          'name' => $it['name'] ?? 'Item',
+          'hsn' => $it['hsn_sac'] ?? ($it['hsn_code'] ?? ($it['hsn'] ?? '')),
+          'qty' => $iq,
+          'unit' => $it['unit'] ?? '-',
+          'rate' => $itPrice,
+          'sub' => false,
+        ];
+      }
+    } elseif ($item_price > 0 && !empty($invoice->item_name)) {
       $lines[] = ['name' => $invoice->item_name, 'hsn' => '', 'qty' => (float) ($item_quantity ?? 1), 'unit' => '-', 'rate' => (float) $item_price];
     }
   }

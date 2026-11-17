@@ -139,6 +139,7 @@
 
       <div class="inv-preview-box">
         <div class="inv-preview-row" id="previewBreakdownRow" style="display:none;"><span>Breakdown total</span><span class="mono" id="previewProductsTotal">₹0.00</span></div>
+        <div id="previewItemsList"></div>
         <div class="inv-preview-row" id="previewItemRow" style="display:none;"><span id="previewItemName">Additional Item</span><span class="mono" id="previewItemPrice">₹0.00</span></div>
         <div class="inv-preview-row" id="previewTaxableRow"><span>Taxable Amount</span><span class="mono" id="previewTaxable">₹0.00</span></div>
         <div class="inv-preview-row" id="previewGstRow"><span>GST (18%)</span><span class="mono" id="previewGst">₹0.00</span></div>
@@ -198,41 +199,47 @@
 </section>
 
 <div class="modal-overlay" id="editInvoiceModal">
-  <div class="modal">
+  <div class="modal" style="max-width: 620px;">
     <div class="modal-header">
       <div class="modal-title">Edit Invoice</div>
       <button class="icon-btn" onclick="window.SW.closeModal('editInvoiceModal')" aria-label="Close modal"><i class="ti ti-x"></i></button>
     </div>
     <form id="editInvoiceForm">
       <input type="hidden" id="editInvoiceId">
-      <div class="modal-body">
+      <div class="modal-body" style="max-height: calc(85vh - 120px); overflow-y: auto;">
         <div class="field">
           <label class="label" for="editInvoiceDate">Invoice Date</label>
           <input type="text" id="editInvoiceDate" required placeholder="e.g. 09 Sep 2026">
         </div>
-        <div class="field">
-          <label class="label" for="editProductSelect">Select from Uploaded Products</label>
-          <select id="editProductSelect" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 13px; color: #1e293b;">
-            <option value="">-- Choose an uploaded product (autofills below) --</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="label" for="editItemName">Additional Item Name</label>
-          <input type="text" id="editItemName" placeholder="e.g. Microfiber Towel, Car Perfume">
-        </div>
-        <div class="modal-row">
-          <div class="field">
-            <label class="label" for="editItemQty">Quantity</label>
-            <input type="number" id="editItemQty" min="1" value="1" placeholder="1">
+
+        <div style="margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label class="label" style="margin-bottom: 0; font-weight: 700; font-size: 13.5px; color: #1e293b;">Additional Products / Items</label>
+            <button type="button" class="btn" id="editAddCustomItemBtn" style="height: 30px; padding: 0 10px; font-size: 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+              <i class="ti ti-plus"></i> Add Custom Item
+            </button>
           </div>
-          <div class="field">
-            <label class="label" for="editItemPrice">Unit Price (₹)</label>
-            <input type="number" id="editItemPrice" placeholder="0" min="0">
+
+          <div class="field" style="margin-bottom: 12px;">
+            <label class="label" for="editProductSelect" style="font-size: 12px; color: #64748b;">Add from Uploaded Products</label>
+            <select id="editProductSelect" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 13px; color: #1e293b;">
+              <option value="">-- Choose an uploaded product to add --</option>
+            </select>
           </div>
-        </div>
-        <div id="editItemTotalRow" style="display: none; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12.5px; color: #475569; justify-content: space-between; align-items: center; margin-top: 2px;">
-          <span style="font-weight: 500;">Item Total (Qty × Price):</span>
-          <span class="mono" id="editItemTotalCalc" style="font-weight: 700; color: #0f172a; font-size: 13px;">₹0.00</span>
+
+          <!-- Items list container -->
+          <div id="editInvoiceItemsContainer" style="display: flex; flex-direction: column; gap: 10px;"></div>
+
+          <!-- Empty placeholder -->
+          <div id="editInvoiceNoItems" style="text-align: center; padding: 18px 12px; border: 1px dashed #cbd5e1; border-radius: 8px; color: #94a3b8; font-size: 12.5px; background: #fafafa; margin-top: 4px;">
+            No additional products added yet. Select a product above or click "Add Custom Item".
+          </div>
+
+          <!-- Total summary row -->
+          <div id="editItemTotalRow" style="display: none; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #475569; justify-content: space-between; align-items: center; margin-top: 12px;">
+            <span style="font-weight: 600;" id="editItemsCountLabel">Total Additional Products (0):</span>
+            <span class="mono" id="editItemTotalCalc" style="font-weight: 700; color: #0f172a; font-size: 14px;">₹0.00</span>
+          </div>
         </div>
       </div>
       <div class="modal-footer">

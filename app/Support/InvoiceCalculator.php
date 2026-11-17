@@ -96,9 +96,25 @@ class InvoiceCalculator
         $subtotal = (float) ($invoice->subtotal ?: $invoice->amount ?: 0);
         $servicePrice = max(0, $subtotal - $productsTotal);   // part of the service not covered by its products
         $serviceTotal = $servicePrice + $productsTotal;
-        $itemPrice = (float) ($invoice->item_price ?? 0);
-        $itemQuantity = max(1, (int) ($invoice->item_quantity ?? 1));
-        $itemTotal = $itemPrice * $itemQuantity;
+
+        $items = is_array($invoice->items) && count($invoice->items)
+            ? $invoice->items
+            : ($invoice->item_name ? [[
+                'name' => $invoice->item_name,
+                'price' => (float) ($invoice->item_price ?? 0),
+                'quantity' => max(1, (int) ($invoice->item_quantity ?? 1)),
+                'product_id' => $invoice->product_id ?? null,
+            ]] : []);
+
+        $itemTotal = 0;
+        foreach ($items as $it) {
+            $ip = (float) ($it['price'] ?? 0);
+            $iq = max(1, (float) ($it['quantity'] ?? 1));
+            $itemTotal += round($ip * $iq, 2);
+        }
+        $itemTotal = round($itemTotal, 2);
+        $itemPrice = count($items) === 1 ? (float) ($items[0]['price'] ?? $itemTotal) : $itemTotal;
+        $itemQuantity = count($items) === 1 ? max(1, (int) ($items[0]['quantity'] ?? 1)) : 1;
         $taxable = round($serviceTotal + $itemTotal, 2);
 
         $cgstRate = (float) ($settings->cgst_rate ?? 0);
@@ -146,7 +162,7 @@ class InvoiceCalculator
             $itemTaxable = round($taxable - $serviceTaxable, 2);
 
             return compact(
-                'productsTotal', 'subtotal', 'servicePrice', 'serviceTotal', 'itemPrice', 'itemQuantity', 'itemTotal',
+                'productsTotal', 'subtotal', 'servicePrice', 'serviceTotal', 'itemPrice', 'itemQuantity', 'itemTotal', 'items',
                 'gross', 'taxable', 'taxRate', 'cgstRate', 'sgstRate', 'cgstAmount', 'sgstAmount', 'taxAmount', 'discount', 'total', 'taxInclusive',
                 'serviceTaxable', 'serviceChargeRate', 'serviceCharge', 'productAmounts', 'serviceRemainder', 'itemTaxable'
             );
@@ -181,7 +197,7 @@ class InvoiceCalculator
         $itemTaxable = 0.0;
 
         return compact(
-            'productsTotal', 'subtotal', 'servicePrice', 'serviceTotal', 'itemPrice', 'itemQuantity', 'itemTotal',
+            'productsTotal', 'subtotal', 'servicePrice', 'serviceTotal', 'itemPrice', 'itemQuantity', 'itemTotal', 'items',
             'gross', 'taxable', 'taxRate', 'cgstRate', 'sgstRate', 'cgstAmount', 'sgstAmount', 'taxAmount', 'discount', 'total', 'taxInclusive',
             'serviceTaxable', 'serviceChargeRate', 'serviceCharge', 'productAmounts', 'serviceRemainder', 'itemTaxable'
         );

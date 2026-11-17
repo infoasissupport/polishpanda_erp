@@ -2209,6 +2209,13 @@ FILES:
             'item_price' => 'nullable|integer',
             'item_quantity' => 'nullable|integer|min:1',
             'product_id' => 'nullable|integer|exists:inventory_items,id',
+            'items' => 'nullable|array',
+            'items.*.name' => 'nullable|string|max:255',
+            'items.*.price' => 'nullable|numeric|min:0',
+            'items.*.quantity' => 'nullable|numeric|min:0.01',
+            'items.*.product_id' => 'nullable|integer',
+            'items.*.hsn_sac' => 'nullable|string|max:255',
+            'items.*.unit' => 'nullable|string|max:255',
         ]);
 
         $userId = $this->currentUserId();
@@ -2242,19 +2249,19 @@ FILES:
         if (Schema::hasColumn('invoices', 'tax_inclusive')) {
             $invoice->tax_inclusive = true;
         }
-        if (!empty($validated['item_name'])) {
-            $invoice->item_name = $validated['item_name'];
-            $invoice->item_price = $validated['item_price'] ?? 0;
-            $invoice->item_quantity = max(1, (int) ($validated['item_quantity'] ?? 1));
-            $product = $this->findInventoryItem($validated['product_id'] ?? null, $validated['item_name'], $userId, $invoice->branch_id);
-            if ($product) {
-                $product->stock = max(0, $product->stock - $invoice->item_quantity);
-                $product->save();
-                if (Schema::hasColumn('invoices', 'product_id')) {
-                    $invoice->product_id = $product->id;
-                }
+
+        $newItems = $this->parseItemsPayload($validated, $userId, $invoice->branch_id);
+        if (count($newItems) > 0) {
+            $invoice->items = $newItems;
+            $invoice->item_name = count($newItems) === 1 ? $newItems[0]['name'] : implode(', ', array_column($newItems, 'name'));
+            $invoice->item_quantity = count($newItems) === 1 ? (int) $newItems[0]['quantity'] : count($newItems);
+            $invoice->item_price = count($newItems) === 1 ? (int) $newItems[0]['price'] : (int) round(array_sum(array_map(fn($it) => $it['price'] * $it['quantity'], $newItems)));
+            if (Schema::hasColumn('invoices', 'product_id')) {
+                $invoice->product_id = count($newItems) === 1 ? ($newItems[0]['product_id'] ?? null) : null;
             }
+            $this->syncInvoiceItemsStock([], $newItems, $userId, $invoice->branch_id);
         }
+
         InvoiceCalculator::applyTo($invoice)->save();
 
         return response()->json($invoice, 201);
@@ -2278,6 +2285,13 @@ FILES:
             'item_price' => 'nullable|integer',
             'item_quantity' => 'nullable|integer|min:1',
             'product_id' => 'nullable|integer|exists:inventory_items,id',
+            'items' => 'nullable|array',
+            'items.*.name' => 'nullable|string|max:255',
+            'items.*.price' => 'nullable|numeric|min:0',
+            'items.*.quantity' => 'nullable|numeric|min:0.01',
+            'items.*.product_id' => 'nullable|integer',
+            'items.*.hsn_sac' => 'nullable|string|max:255',
+            'items.*.unit' => 'nullable|string|max:255',
         ]);
 
         $userId = $this->currentUserId();
@@ -2335,18 +2349,36 @@ FILES:
             $invoice->date = $validated['date'];
         }
 
-        if (array_key_exists('item_name', $validated) || array_key_exists('item_quantity', $validated) || array_key_exists('product_id', $validated)) {
-            $newItemName = array_key_exists('item_name', $validated) ? $validated['item_name'] : $invoice->item_name;
-            $newItemQty = array_key_exists('item_quantity', $validated) ? max(1, (int) $validated['item_quantity']) : ($invoice->item_quantity ? max(1, (int) $invoice->item_quantity) : 1);
-            $newProductId = array_key_exists('product_id', $validated) ? $validated['product_id'] : (Schema::hasColumn('invoices', 'product_id') ? $invoice->product_id : null);
+        if (array_key_exists('items', $validated) || array_key_exists('item_name', $validated)) {
+            $oldItems = is_array($invoice->items) && count($invoice->items)
+                ? $invoice->items
+                : (!empty($invoice->item_name) ? [[
+                    'name' => $invoice->item_name,
+                    'price' => (float) ($invoice->item_price ?? 0),
+                    'quantity' => max(1, (int) ($invoice->item_quantity ?? 1)),
+                    'product_id' => $invoice->product_id ?? null,
+                ]] : []);
 
-            $this->syncInvoiceItemStock($invoice, $newItemName, $newItemQty, $newProductId);
+            $newItems = $this->parseItemsPayload($validated, $userId, $invoice->branch_id);
 
-            $invoice->item_name = $newItemName;
-            if (array_key_exists('item_price', $validated)) {
-                $invoice->item_price = $validated['item_price'];
+            $this->syncInvoiceItemsStock($oldItems, $newItems, $userId, $invoice->branch_id);
+
+            $invoice->items = $newItems;
+            if (count($newItems) > 0) {
+                $invoice->item_name = count($newItems) === 1 ? $newItems[0]['name'] : implode(', ', array_column($newItems, 'name'));
+                $invoice->item_quantity = count($newItems) === 1 ? (int) $newItems[0]['quantity'] : count($newItems);
+                $invoice->item_price = count($newItems) === 1 ? (int) $newItems[0]['price'] : (int) round(array_sum(array_map(fn($it) => $it['price'] * $it['quantity'], $newItems)));
+                if (Schema::hasColumn('invoices', 'product_id')) {
+                    $invoice->product_id = count($newItems) === 1 ? ($newItems[0]['product_id'] ?? null) : null;
+                }
+            } else {
+                $invoice->item_name = null;
+                $invoice->item_quantity = null;
+                $invoice->item_price = 0;
+                if (Schema::hasColumn('invoices', 'product_id')) {
+                    $invoice->product_id = null;
+                }
             }
-            $invoice->item_quantity = $newItemName ? $newItemQty : null;
         }
 
         // Recalculate tax and total with the same maths as the preview and printed invoice
@@ -2362,18 +2394,63 @@ FILES:
         $userId = $this->currentUserId();
         $invoice = $this->applyBranchFilter(Invoice::where('user_id', $userId), request())->findOrFail($id);
 
-        if (!empty(trim((string) $invoice->item_name))) {
-            $productId = Schema::hasColumn('invoices', 'product_id') ? $invoice->product_id : null;
-            $product = $this->findInventoryItem($productId, $invoice->item_name, $userId, $invoice->branch_id);
-            if ($product) {
-                $product->stock += max(1, (int) ($invoice->item_quantity ?: 1));
-                $product->save();
+        $items = is_array($invoice->items) && count($invoice->items)
+            ? $invoice->items
+            : (!empty(trim((string) $invoice->item_name)) ? [[
+                'name' => $invoice->item_name,
+                'quantity' => max(1, (int) ($invoice->item_quantity ?: 1)),
+                'product_id' => $invoice->product_id ?? null,
+            ]] : []);
+
+        foreach ($items as $it) {
+            $p = $this->findInventoryItem($it['product_id'] ?? null, $it['name'] ?? '', $userId, $invoice->branch_id);
+            if ($p) {
+                $p->stock += max(0.01, (float) ($it['quantity'] ?? 1));
+                $p->save();
             }
         }
 
         $invoice->delete();
 
         return response()->json(['status' => 'success']);
+    }
+
+    protected function parseItemsPayload(array $validated, $userId, ?int $branchId = null): array
+    {
+        $newItems = [];
+        if (array_key_exists('items', $validated) && is_array($validated['items'])) {
+            foreach ($validated['items'] as $it) {
+                $name = trim((string) ($it['name'] ?? ''));
+                if ($name === '') continue;
+                $qty = max(0.01, (float) ($it['quantity'] ?? 1));
+                $price = max(0, (float) ($it['price'] ?? 0));
+                $prodId = !empty($it['product_id']) ? (int) $it['product_id'] : null;
+                $product = $this->findInventoryItem($prodId, $name, $userId, $branchId);
+                $newItems[] = [
+                    'product_id' => $product?->id ?: $prodId,
+                    'name' => $product?->name ?: $name,
+                    'quantity' => $qty,
+                    'price' => $price,
+                    'hsn_sac' => $product?->hsn_sac ?: ($it['hsn_sac'] ?? ''),
+                    'unit' => $product?->unit ?: ($it['unit'] ?? 'pcs'),
+                ];
+            }
+        } elseif (!empty($validated['item_name'])) {
+            $name = trim((string) $validated['item_name']);
+            $qty = max(1, (int) ($validated['item_quantity'] ?? 1));
+            $price = max(0, (float) ($validated['item_price'] ?? 0));
+            $prodId = !empty($validated['product_id']) ? (int) $validated['product_id'] : null;
+            $product = $this->findInventoryItem($prodId, $name, $userId, $branchId);
+            $newItems[] = [
+                'product_id' => $product?->id ?: $prodId,
+                'name' => $product?->name ?: $name,
+                'quantity' => $qty,
+                'price' => $price,
+                'hsn_sac' => $product?->hsn_sac ?: '',
+                'unit' => $product?->unit ?: 'pcs',
+            ];
+        }
+        return $newItems;
     }
 
     protected function findInventoryItem(?int $productId, ?string $name, $userId, ?int $branchId = null): ?InventoryItem
@@ -2407,48 +2484,43 @@ FILES:
             ->first();
     }
 
-    protected function syncInvoiceItemStock(Invoice $invoice, ?string $newItemName, int $newItemQty, ?int $newProductId = null): void
+    protected function syncInvoiceItemsStock(array $oldItems, array $newItems, $userId, ?int $branchId = null): void
     {
-        $userId = $invoice->user_id ?: $this->currentUserId();
-        $branchId = $invoice->branch_id;
-
-        $oldName = trim((string) $invoice->item_name);
-        $oldQty = $invoice->item_quantity ? max(1, (int) $invoice->item_quantity) : 1;
-        $oldProductId = Schema::hasColumn('invoices', 'product_id') ? $invoice->product_id : null;
-
-        $newName = trim((string) $newItemName);
-        $hadOldItem = $oldName !== '';
-        $hasNewItem = $newName !== '';
-
-        if (!$hadOldItem && !$hasNewItem) {
-            return;
+        $oldProductMap = [];
+        foreach ($oldItems as $it) {
+            $name = trim((string) ($it['name'] ?? ''));
+            if ($name === '') continue;
+            $qty = max(0.01, (float) ($it['quantity'] ?? 1));
+            $p = $this->findInventoryItem($it['product_id'] ?? null, $name, $userId, $branchId);
+            if ($p) {
+                $oldProductMap[$p->id] = ($oldProductMap[$p->id] ?? 0) + $qty;
+            }
         }
 
-        $oldProduct = $hadOldItem ? $this->findInventoryItem($oldProductId, $oldName, $userId, $branchId) : null;
-        $newProduct = $hasNewItem ? $this->findInventoryItem($newProductId, $newName, $userId, $branchId) : null;
+        $newProductMap = [];
+        $productModels = [];
+        foreach ($newItems as $it) {
+            $name = trim((string) ($it['name'] ?? ''));
+            if ($name === '') continue;
+            $qty = max(0.01, (float) ($it['quantity'] ?? 1));
+            $p = $this->findInventoryItem($it['product_id'] ?? null, $name, $userId, $branchId);
+            if ($p) {
+                $newProductMap[$p->id] = ($newProductMap[$p->id] ?? 0) + $qty;
+                $productModels[$p->id] = $p;
+            }
+        }
 
-        if ($oldProduct && $newProduct && $oldProduct->id === $newProduct->id) {
-            $qtyDiff = $newItemQty - $oldQty;
-            if ($qtyDiff !== 0) {
-                $newProduct->stock = max(0, $newProduct->stock - $qtyDiff);
-                $newProduct->save();
-            }
-            if (Schema::hasColumn('invoices', 'product_id')) {
-                $invoice->product_id = $newProduct->id;
-            }
-        } else {
-            if ($oldProduct) {
-                $oldProduct->stock += $oldQty;
-                $oldProduct->save();
-            }
-            if ($newProduct) {
-                $newProduct->stock = max(0, $newProduct->stock - $newItemQty);
-                $newProduct->save();
-                if (Schema::hasColumn('invoices', 'product_id')) {
-                    $invoice->product_id = $newProduct->id;
+        $allIds = array_unique(array_merge(array_keys($oldProductMap), array_keys($newProductMap)));
+        foreach ($allIds as $pId) {
+            $oldQ = $oldProductMap[$pId] ?? 0;
+            $newQ = $newProductMap[$pId] ?? 0;
+            $diff = $newQ - $oldQ;
+            if ($diff != 0) {
+                $product = $productModels[$pId] ?? InventoryItem::find($pId);
+                if ($product) {
+                    $product->stock = max(0, $product->stock - $diff);
+                    $product->save();
                 }
-            } elseif (Schema::hasColumn('invoices', 'product_id')) {
-                $invoice->product_id = null;
             }
         }
     }

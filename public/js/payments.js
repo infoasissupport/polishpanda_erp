@@ -225,9 +225,20 @@
     var rawSubtotal = Number(inv.subtotal || inv.amount || 0);
     var servicePrice = Math.max(0, rawSubtotal - productsTotal); // part of the service not covered by its products
     var serviceTotal = round2(servicePrice + productsTotal);
+
     var itemPrice = Number(inv.item_price || 0);
     var itemQty = Math.max(1, Number(inv.item_quantity || 1));
-    var itemTotal = itemPrice * itemQty;
+    var itemTotal = 0;
+    if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
+      for (var i = 0; i < inv.items.length; i++) {
+        var ip = Number(inv.items[i].price || 0);
+        var iq = Number(inv.items[i].quantity || 1);
+        itemTotal += (ip * iq);
+      }
+      itemTotal = round2(itemTotal);
+    } else {
+      itemTotal = itemPrice * itemQty;
+    }
     var taxableAmount = round2(serviceTotal + itemTotal);
 
     var cgstRate = (SETTINGS && SETTINGS.cgst_rate !== undefined && SETTINGS.cgst_rate !== null) ? Number(SETTINGS.cgst_rate) : 0;
@@ -237,7 +248,7 @@
     var discount = Number(inv.discount_amount || 0);
     var base = {
       productsTotal: productsTotal, servicePrice: servicePrice, serviceTotal: serviceTotal, itemPrice: itemPrice, itemQty: itemQty, itemTotal: itemTotal,
-      discount: discount, taxInclusive: !!(inv.tax_inclusive && inv.tax_inclusive !== '0')
+      items: inv.items || [], discount: discount, taxInclusive: !!(inv.tax_inclusive && inv.tax_inclusive !== '0')
     };
 
     if (base.taxInclusive) {
@@ -587,8 +598,27 @@
       if (sgstRow) sgstRow.style.display = 'none';
     }
     
+    var itemsContainer = document.getElementById('previewItemsList');
     var itemRow = document.getElementById('previewItemRow');
-    if (itemRow) {
+    var invItems = (inv.items && Array.isArray(inv.items) && inv.items.length > 0)
+      ? inv.items
+      : (inv.item_name && itemPrice > 0 ? [{ name: inv.item_name, price: itemPrice, quantity: itemQty }] : []);
+
+    if (itemsContainer) {
+      if (invItems.length > 0) {
+        itemsContainer.innerHTML = invItems.map(function (it) {
+          var iQty = Number(it.quantity) || 1;
+          var iPrice = Number(it.price) || 0;
+          var iTot = iQty * iPrice;
+          var qtyStr = iQty > 1 ? ' (' + iQty + ' × ' + formatMoney(iPrice) + ')' : '';
+          return '<div class="inv-preview-row"><span>' + escapeHtml(it.name || 'Additional Item') + qtyStr + '</span><span class="mono">' + formatMoney(iTot) + '</span></div>';
+        }).join('');
+        if (itemRow) itemRow.style.display = 'none';
+      } else {
+        itemsContainer.innerHTML = '';
+        if (itemRow) itemRow.style.display = 'none';
+      }
+    } else if (itemRow) {
       if (inv.item_name && itemPrice > 0) {
         itemRow.style.display = 'flex';
         var qtyStr = itemQty > 1 ? ' (' + itemQty + ' × ' + formatMoney(itemPrice) + ')' : '';
@@ -1161,9 +1191,10 @@
   }
   
   var AVAILABLE_PRODUCTS = [];
+  var editInvoiceItems = [];
 
-  async function loadAvailableProducts() {
-    if (AVAILABLE_PRODUCTS.length) return AVAILABLE_PRODUCTS;
+  async function loadAvailableProducts(force) {
+    if (!force && AVAILABLE_PRODUCTS.length) return AVAILABLE_PRODUCTS;
     try {
       var res = await fetch('/api/products?t=' + new Date().getTime());
       if (res.ok) {
@@ -1175,34 +1206,134 @@
     return AVAILABLE_PRODUCTS;
   }
 
-  async function populateProductSelectDropdown(currentName) {
-    var select = document.getElementById('editProductSelect');
-    if (!select) return;
-    await loadAvailableProducts();
-    var normCurrent = (currentName || '').trim().toLowerCase();
-    select.innerHTML = '<option value="">-- Choose an uploaded product (autofills below) --</option>' +
-      AVAILABLE_PRODUCTS.map(function (p) {
-        var price = p.unit_cost != null ? p.unit_cost : 0;
-        var isSelected = (normCurrent && p.name && normCurrent === p.name.trim().toLowerCase());
-        return '<option value="' + p.id + '"' + (isSelected ? ' selected' : '') + '>' +
-          escapeHtml(p.name) + ' (₹' + Number(price).toLocaleString('en-IN') + ')' +
-          '</option>';
-      }).join('');
+  function updateEditItemsSummary() {
+    var countLabel = document.getElementById('editItemsCountLabel');
+    var totalVal = document.getElementById('editItemTotalCalc');
+    var totalRow = document.getElementById('editItemTotalRow');
+    var emptyPlaceholder = document.getElementById('editInvoiceNoItems');
+
+    var total = 0;
+    for (var i = 0; i < editInvoiceItems.length; i++) {
+      var item = editInvoiceItems[i];
+      var p = Number(item.price) || 0;
+      var q = Number(item.quantity) || 1;
+      total += (p * q);
+    }
+
+    if (emptyPlaceholder) {
+      emptyPlaceholder.style.display = editInvoiceItems.length === 0 ? 'block' : 'none';
+    }
+    if (totalRow) {
+      totalRow.style.display = editInvoiceItems.length > 0 ? 'flex' : 'none';
+    }
+    if (countLabel) {
+      countLabel.textContent = 'Total Additional Products (' + editInvoiceItems.length + '):';
+    }
+    if (totalVal) {
+      totalVal.textContent = formatMoney(total);
+    }
   }
 
-  function updateEditItemTotalCalc() {
-    var totalRow = document.getElementById('editItemTotalRow');
-    var totalVal = document.getElementById('editItemTotalCalc');
-    if (!totalRow || !totalVal) return;
-    var price = Number(document.getElementById('editItemPrice').value) || 0;
-    var qty = Math.max(1, Number(document.getElementById('editItemQty').value) || 1);
-    var name = (document.getElementById('editItemName').value || '').trim();
-    if (price > 0 || name) {
-      totalRow.style.display = 'flex';
-      totalVal.textContent = formatMoney(price * qty);
-    } else {
-      totalRow.style.display = 'none';
+  function renderEditInvoiceItems() {
+    var container = document.getElementById('editInvoiceItemsContainer');
+    if (!container) return;
+
+    if (editInvoiceItems.length === 0) {
+      container.innerHTML = '';
+      updateEditItemsSummary();
+      return;
     }
+
+    container.innerHTML = editInvoiceItems.map(function (item, idx) {
+      var price = item.price != null ? Number(item.price) : 0;
+      var qty = item.quantity != null ? Number(item.quantity) : 1;
+      var itemTotal = price * qty;
+      var badge = item.product_id
+        ? '<span style="font-size:11px; padding:2px 8px; border-radius:4px; background:#eff6ff; color:#2563eb; font-weight:600; white-space:nowrap;">Uploaded Product' + (item.unit ? ' (' + escapeHtml(item.unit) + ')' : '') + '</span>'
+        : '<span style="font-size:11px; padding:2px 8px; border-radius:4px; background:#f1f5f9; color:#475569; font-weight:600; white-space:nowrap;">Custom Item</span>';
+
+      return '<div class="edit-item-row" data-idx="' + idx + '" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; box-shadow:0 1px 2px rgba(0,0,0,0.03);">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">' +
+          '<div style="flex:1; display:flex; align-items:center; gap:8px; min-width:0;">' +
+            '<input type="text" class="edit-item-name" data-idx="' + idx + '" value="' + escapeHtml(item.name || '') + '" placeholder="Item name" style="flex:1; height:34px; padding:0 10px; font-size:13px; font-weight:600; border:1px solid #cbd5e1; border-radius:6px; background:#fff;">' +
+            badge +
+          '</div>' +
+          '<button type="button" class="btn-remove-invoice-item" data-idx="' + idx + '" title="Remove product" style="color:#ef4444; width:30px; height:30px; border-radius:6px; background:#fee2e2; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
+          '</button>' +
+        '</div>' +
+        '<div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; align-items:center;">' +
+          '<div>' +
+            '<label style="font-size:11px; color:#64748b; margin-bottom:3px; display:block;">Qty' + (item.unit ? ' (' + escapeHtml(item.unit) + ')' : '') + '</label>' +
+            '<input type="number" class="edit-item-qty" data-idx="' + idx + '" min="1" step="1" value="' + qty + '" style="width:100%; height:32px; padding:0 8px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px; background:#fff;">' +
+          '</div>' +
+          '<div>' +
+            '<label style="font-size:11px; color:#64748b; margin-bottom:3px; display:block;">Unit Price (₹)</label>' +
+            '<input type="number" class="edit-item-price" data-idx="' + idx + '" min="0" step="any" value="' + price + '" style="width:100%; height:32px; padding:0 8px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px; background:#fff;">' +
+          '</div>' +
+          '<div>' +
+            '<label style="font-size:11px; color:#64748b; margin-bottom:3px; display:block;">Subtotal</label>' +
+            '<div class="edit-item-subtotal mono" data-idx="' + idx + '" style="height:32px; display:flex; align-items:center; font-size:13px; font-weight:700; color:#0f172a;">' +
+              formatMoney(itemTotal) +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    updateEditItemsSummary();
+  }
+
+  var editInvoiceItemsContainer = document.getElementById('editInvoiceItemsContainer');
+  if (editInvoiceItemsContainer) {
+    editInvoiceItemsContainer.addEventListener('click', function (e) {
+      var removeBtn = e.target.closest('.btn-remove-invoice-item');
+      if (removeBtn) {
+        var idx = parseInt(removeBtn.getAttribute('data-idx'));
+        if (!isNaN(idx) && editInvoiceItems[idx] !== undefined) {
+          editInvoiceItems.splice(idx, 1);
+          renderEditInvoiceItems();
+        }
+      }
+    });
+
+    editInvoiceItemsContainer.addEventListener('input', function (e) {
+      var target = e.target;
+      var idx = parseInt(target.getAttribute('data-idx'));
+      if (isNaN(idx) || !editInvoiceItems[idx]) return;
+
+      if (target.classList.contains('edit-item-name')) {
+        editInvoiceItems[idx].name = target.value;
+      } else if (target.classList.contains('edit-item-qty')) {
+        var q = Math.max(1, Number(target.value) || 1);
+        editInvoiceItems[idx].quantity = q;
+        var p = Number(editInvoiceItems[idx].price) || 0;
+        var subtotalEl = editInvoiceItemsContainer.querySelector('.edit-item-subtotal[data-idx="' + idx + '"]');
+        if (subtotalEl) subtotalEl.textContent = formatMoney(q * p);
+        updateEditItemsSummary();
+      } else if (target.classList.contains('edit-item-price')) {
+        var pr = Math.max(0, Number(target.value) || 0);
+        editInvoiceItems[idx].price = pr;
+        var qVal = Number(editInvoiceItems[idx].quantity) || 1;
+        var subtotalEl = editInvoiceItemsContainer.querySelector('.edit-item-subtotal[data-idx="' + idx + '"]');
+        if (subtotalEl) subtotalEl.textContent = formatMoney(qVal * pr);
+        updateEditItemsSummary();
+      }
+    });
+  }
+
+  async function populateProductSelectDropdown() {
+    var select = document.getElementById('editProductSelect');
+    if (!select) return;
+    await loadAvailableProducts(true);
+    select.innerHTML = '<option value="">-- Choose an uploaded product to add --</option>' +
+      AVAILABLE_PRODUCTS.map(function (p) {
+        var price = p.unit_cost != null ? p.unit_cost : 0;
+        var stockStr = p.stock != null ? (' • Stock: ' + p.stock + (p.unit ? ' ' + p.unit : ' pcs')) : '';
+        return '<option value="' + p.id + '">' +
+          escapeHtml(p.name) + ' (₹' + Number(price).toLocaleString('en-IN') + stockStr + ')' +
+          '</option>';
+      }).join('');
   }
 
   var editProductSelectEl = document.getElementById('editProductSelect');
@@ -1212,23 +1343,43 @@
       if (!prodId) return;
       var prod = AVAILABLE_PRODUCTS.filter(function (p) { return p.id === prodId; })[0];
       if (prod) {
-        document.getElementById('editItemName').value = prod.name;
-        document.getElementById('editItemPrice').value = prod.unit_cost != null ? prod.unit_cost : 0;
-        var qtyInput = document.getElementById('editItemQty');
-        if (qtyInput && (!qtyInput.value || parseInt(qtyInput.value) <= 0)) {
-          qtyInput.value = 1;
+        var existing = editInvoiceItems.filter(function (it) { return it.product_id === prod.id; })[0];
+        if (existing) {
+          existing.quantity = (Number(existing.quantity) || 1) + 1;
+        } else {
+          editInvoiceItems.push({
+            product_id: prod.id,
+            name: prod.name,
+            price: prod.unit_cost != null ? prod.unit_cost : 0,
+            quantity: 1,
+            hsn_sac: prod.hsn_sac || prod.hsn_code || prod.hsn || '',
+            unit: prod.unit || 'pcs'
+          });
         }
-        updateEditItemTotalCalc();
+        renderEditInvoiceItems();
       }
+      this.value = '';
     });
   }
 
-  var editItemPriceInput = document.getElementById('editItemPrice');
-  var editItemQtyInput = document.getElementById('editItemQty');
-  var editItemNameInput = document.getElementById('editItemName');
-  if (editItemPriceInput) editItemPriceInput.addEventListener('input', updateEditItemTotalCalc);
-  if (editItemQtyInput) editItemQtyInput.addEventListener('input', updateEditItemTotalCalc);
-  if (editItemNameInput) editItemNameInput.addEventListener('input', updateEditItemTotalCalc);
+  var editAddCustomItemBtn = document.getElementById('editAddCustomItemBtn');
+  if (editAddCustomItemBtn) {
+    editAddCustomItemBtn.addEventListener('click', function () {
+      editInvoiceItems.push({
+        product_id: null,
+        name: '',
+        price: 0,
+        quantity: 1,
+        hsn_sac: '',
+        unit: 'pcs'
+      });
+      renderEditInvoiceItems();
+      var inputs = document.querySelectorAll('.edit-item-name');
+      if (inputs.length) {
+        inputs[inputs.length - 1].focus();
+      }
+    });
+  }
 
   var editInvoiceBtn = document.getElementById('previewEditBtn');
   var editInvoiceForm = document.getElementById('editInvoiceForm');
@@ -1239,12 +1390,33 @@
       if (!inv) return;
       document.getElementById('editInvoiceId').value = inv.id;
       document.getElementById('editInvoiceDate').value = inv.date || '';
-      document.getElementById('editItemName').value = inv.item_name || '';
-      document.getElementById('editItemPrice').value = inv.item_price || '';
-      var qtyInput = document.getElementById('editItemQty');
-      if (qtyInput) qtyInput.value = inv.item_quantity || 1;
-      await populateProductSelectDropdown(inv.item_name);
-      updateEditItemTotalCalc();
+
+      if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
+        editInvoiceItems = inv.items.map(function (it) {
+          return {
+            product_id: it.product_id ? parseInt(it.product_id) : null,
+            name: it.name || '',
+            price: it.price != null ? Number(it.price) : 0,
+            quantity: it.quantity != null ? Number(it.quantity) : 1,
+            hsn_sac: it.hsn_sac || it.hsn_code || '',
+            unit: it.unit || 'pcs'
+          };
+        });
+      } else if (inv.item_name) {
+        editInvoiceItems = [{
+          product_id: inv.product_id ? parseInt(inv.product_id) : null,
+          name: inv.item_name,
+          price: inv.item_price != null ? Number(inv.item_price) : 0,
+          quantity: inv.item_quantity != null ? Number(inv.item_quantity) : 1,
+          hsn_sac: '',
+          unit: 'pcs'
+        }];
+      } else {
+        editInvoiceItems = [];
+      }
+
+      await populateProductSelectDropdown();
+      renderEditInvoiceItems();
       window.SW.openModal('editInvoiceModal');
     });
   }
@@ -1255,27 +1427,51 @@
       var id = document.getElementById('editInvoiceId').value;
       if (!id) return;
       var dateVal = document.getElementById('editInvoiceDate').value.trim();
-      var itemNameVal = document.getElementById('editItemName').value.trim();
-      var itemPriceVal = document.getElementById('editItemPrice').value.trim();
-      var itemQtyInput = document.getElementById('editItemQty');
-      var itemQtyVal = itemQtyInput ? itemQtyInput.value.trim() : '1';
-      var selectEl = document.getElementById('editProductSelect');
-      var selectedProdId = selectEl && selectEl.value ? parseInt(selectEl.value) : null;
 
-      if (itemNameVal && !selectedProdId && AVAILABLE_PRODUCTS.length) {
-        var matched = AVAILABLE_PRODUCTS.filter(function(p) {
-          return p.name && p.name.trim().toLowerCase() === itemNameVal.toLowerCase();
-        })[0];
-        if (matched) selectedProdId = matched.id;
-      }
-      
-      var payload = {};
+      var validItems = editInvoiceItems.filter(function (it) {
+        return (it.name && it.name.trim().length > 0) || (Number(it.price) > 0);
+      }).map(function (it) {
+        var pId = it.product_id ? parseInt(it.product_id) : null;
+        if (!pId && it.name && AVAILABLE_PRODUCTS.length) {
+          var matched = AVAILABLE_PRODUCTS.filter(function (p) {
+            return p.name && p.name.trim().toLowerCase() === it.name.trim().toLowerCase();
+          })[0];
+          if (matched) {
+            pId = matched.id;
+            if (!it.hsn_sac) it.hsn_sac = matched.hsn_sac || matched.hsn_code || '';
+            if (!it.unit) it.unit = matched.unit || 'pcs';
+          }
+        }
+        return {
+          product_id: pId,
+          name: (it.name || '').trim(),
+          price: Math.max(0, Number(it.price) || 0),
+          quantity: Math.max(1, Number(it.quantity) || 1),
+          hsn_sac: it.hsn_sac || null,
+          unit: it.unit || null
+        };
+      });
+
+      var payload = {
+        items: validItems
+      };
       if (dateVal) payload.date = dateVal;
-      payload.item_name = itemNameVal ? itemNameVal : null;
-      payload.item_price = itemNameVal ? (parseInt(itemPriceVal) || 0) : 0;
-      payload.item_quantity = itemNameVal ? Math.max(1, parseInt(itemQtyVal) || 1) : 1;
-      if (selectedProdId && itemNameVal) {
-        payload.product_id = selectedProdId;
+
+      if (validItems.length === 0) {
+        payload.item_name = null;
+        payload.item_price = 0;
+        payload.item_quantity = 1;
+        payload.product_id = null;
+      } else if (validItems.length === 1) {
+        payload.item_name = validItems[0].name;
+        payload.item_price = validItems[0].price;
+        payload.item_quantity = validItems[0].quantity;
+        payload.product_id = validItems[0].product_id || null;
+      } else {
+        payload.item_name = validItems.map(function (it) { return it.name; }).join(', ');
+        payload.item_quantity = validItems.length;
+        payload.item_price = validItems.reduce(function (sum, it) { return sum + (it.price * it.quantity); }, 0);
+        payload.product_id = null;
       }
 
       payload._method = 'PUT';
@@ -1291,7 +1487,8 @@
           await loadInvoices();
           selectInvoice(id);
         } else {
-          alert('Failed to update invoice.');
+          var errData = await res.json().catch(function () { return {}; });
+          alert('Failed to update invoice: ' + (errData.message || 'Unknown error'));
         }
       } catch (err) { console.error(err); }
     });

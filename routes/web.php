@@ -204,6 +204,7 @@ Kollam, Kerala - 691306",
     $item_price = $t['itemPrice'];
     $item_quantity = $t['itemQuantity'];
     $item_total = $t['itemTotal'];
+    $items = $t['items'] ?? [];
     $taxRate = $t['taxRate'];
     $cgstRate = $t['cgstRate'];
     $sgstRate = $t['sgstRate'];
@@ -226,7 +227,7 @@ Kollam, Kerala - 691306",
 
     return view('invoice-print', compact(
         'invoice', 'settings', 'servicePrice', 'subtotal', 'productsTotal',
-        'combinedSubtotal', 'item_price', 'item_quantity', 'item_total', 'taxRate', 'taxAmount',
+        'combinedSubtotal', 'item_price', 'item_quantity', 'item_total', 'items', 'taxRate', 'taxAmount',
         'cgstRate', 'sgstRate', 'cgstAmount', 'sgstAmount',
         'discount', 'total', 'date', 'serviceProducts', 'customerRecord', 'taxInclusive', 'taxableBase', 'breakdown'
     ));
