@@ -449,44 +449,62 @@
   }
 
   function renderKpis(filtered) {
+    var totalAmountSum = 0, totalAmountCount = 0;
     var cashSum = 0, cashCount = 0;
     var upiSum = 0, upiCount = 0;
     var splitSum = 0, splitCount = 0;
     
+    var methodFilter = document.getElementById('invoiceFilterSelect') ? document.getElementById('invoiceFilterSelect').value : 'all';
+    var isPendingOnly = (methodFilter === 'pending');
+
     filtered.forEach(function(inv) {
-      if (inv.status === 'paid') {
-        var m = (inv.method || '').toLowerCase();
-        var amt = getInvoiceEffectiveTotal(inv);
-        
-        if (m === 'cash') {
-          cashSum += amt;
-          cashCount++;
-        } else if (m === 'upi') {
-          upiSum += amt;
-          upiCount++;
-        } else if (m === 'upi_cash' || m === 'split') {
-          splitSum += amt;
-          splitCount++;
+      var amt = getInvoiceEffectiveTotal(inv);
+      if (isPendingOnly) {
+        if (inv.status === 'pending') {
+          totalAmountSum += amt;
+          totalAmountCount++;
+        }
+      } else {
+        if (inv.status === 'paid') {
+          var m = (inv.method || '').toLowerCase();
+          totalAmountSum += amt;
+          totalAmountCount++;
+          
+          if (m === 'cash') {
+            cashSum += amt;
+            cashCount++;
+          } else if (m === 'upi') {
+            upiSum += amt;
+            upiCount++;
+          } else if (m === 'upi_cash' || m === 'split') {
+            splitSum += amt;
+            splitCount++;
+          }
         }
       }
     });
 
-    var formatAmount = function(val) { return '₹' + val.toLocaleString('en-IN'); };
+    var formatAmount = function(val) { return '₹' + Math.round(val).toLocaleString('en-IN'); };
+
+    var totalAmtEl = document.getElementById('payKpiTotalAmount');
+    if (totalAmtEl) totalAmtEl.textContent = formatAmount(totalAmountSum);
+    var totalAmtSub = document.getElementById('payKpiTotalAmountSub');
+    if (totalAmtSub) totalAmtSub.textContent = totalAmountCount + (totalAmountCount === 1 ? ' Invoice' : ' Invoices');
 
     var cashEl = document.getElementById('payKpiCash');
     if (cashEl) cashEl.textContent = formatAmount(cashSum);
     var cashSub = document.getElementById('payKpiCashSub');
-    if (cashSub) cashSub.textContent = cashCount + ' Invoices';
+    if (cashSub) cashSub.textContent = cashCount + (cashCount === 1 ? ' Invoice' : ' Invoices');
 
     var upiEl = document.getElementById('payKpiUpi');
     if (upiEl) upiEl.textContent = formatAmount(upiSum);
     var upiSub = document.getElementById('payKpiUpiSub');
-    if (upiSub) upiSub.textContent = upiCount + ' Invoices';
+    if (upiSub) upiSub.textContent = upiCount + (upiCount === 1 ? ' Invoice' : ' Invoices');
 
     var totalEl = document.getElementById('payKpiTotal');
     if (totalEl) totalEl.textContent = formatAmount(splitSum);
     var totalSub = document.getElementById('payKpiTotalSub');
-    if (totalSub) totalSub.textContent = splitCount + ' Invoices';
+    if (totalSub) totalSub.textContent = splitCount + (splitCount === 1 ? ' Invoice' : ' Invoices');
   }
 
   function renderTable() {
