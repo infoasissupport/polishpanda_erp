@@ -1427,12 +1427,17 @@ FILES:
             ->first();
 
         $inTime = $request->input('check_in_time');
+        $outTime = $request->input('check_out_time');
         if (in_array($status, ['present', 'late'])) {
             if (empty($inTime)) {
                 $inTime = $existingAtt?->check_in_time ?: now()->format('H:i:s');
             }
+            if (!$request->has('check_out_time')) {
+                $outTime = $existingAtt?->check_out_time;
+            }
         } else {
             $inTime = null;
+            $outTime = null;
         }
 
         // Save to staff_attendance table
@@ -1441,6 +1446,7 @@ FILES:
             [
                 'status' => $status,
                 'check_in_time' => $inTime,
+                'check_out_time' => $outTime,
             ]
         );
 
