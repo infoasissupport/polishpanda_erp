@@ -1259,12 +1259,24 @@
       var itemPriceVal = document.getElementById('editItemPrice').value.trim();
       var itemQtyInput = document.getElementById('editItemQty');
       var itemQtyVal = itemQtyInput ? itemQtyInput.value.trim() : '1';
+      var selectEl = document.getElementById('editProductSelect');
+      var selectedProdId = selectEl && selectEl.value ? parseInt(selectEl.value) : null;
+
+      if (itemNameVal && !selectedProdId && AVAILABLE_PRODUCTS.length) {
+        var matched = AVAILABLE_PRODUCTS.filter(function(p) {
+          return p.name && p.name.trim().toLowerCase() === itemNameVal.toLowerCase();
+        })[0];
+        if (matched) selectedProdId = matched.id;
+      }
       
       var payload = {};
       if (dateVal) payload.date = dateVal;
       payload.item_name = itemNameVal ? itemNameVal : null;
       payload.item_price = itemNameVal ? (parseInt(itemPriceVal) || 0) : 0;
       payload.item_quantity = itemNameVal ? Math.max(1, parseInt(itemQtyVal) || 1) : 1;
+      if (selectedProdId && itemNameVal) {
+        payload.product_id = selectedProdId;
+      }
 
       payload._method = 'PUT';
       try {

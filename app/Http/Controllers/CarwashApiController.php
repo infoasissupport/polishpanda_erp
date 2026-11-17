@@ -1657,6 +1657,9 @@ FILES:
             'supplier' => 'nullable|string|max:255',
             'unit_cost' => 'nullable|integer',
             'unit' => 'nullable|string|max:255',
+            'hsn_sac' => 'nullable|string|max:255',
+            'hsn_code' => 'nullable|string|max:255',
+            'hsn' => 'nullable|string|max:255',
             'low_stock_alert' => 'nullable|boolean',
             'active' => 'nullable|boolean',
         ]);
@@ -1669,6 +1672,9 @@ FILES:
         $itemData['reorder'] = $validated['reorder'] ?? 5;
         $itemData['supplier'] = $validated['supplier'] ?? 'General';
         $itemData['description'] = $validated['description'] ?? null;
+        $itemData['unit'] = $validated['unit'] ?? 'pcs';
+        $itemData['hsn_sac'] = $validated['hsn_sac'] ?? $validated['hsn_code'] ?? $validated['hsn'] ?? null;
+        unset($itemData['hsn_code'], $itemData['hsn']);
 
         if (Schema::hasColumn('inventory_items', 'unit')) {
             $itemData['unit'] = $validated['unit'] ?? 'pcs';
@@ -1719,12 +1725,19 @@ FILES:
             'supplier' => 'nullable|string|max:255',
             'unit_cost' => 'nullable|integer',
             'unit' => 'nullable|string|max:255',
+            'hsn_sac' => 'nullable|string|max:255',
+            'hsn_code' => 'nullable|string|max:255',
+            'hsn' => 'nullable|string|max:255',
             'low_stock_alert' => 'nullable|boolean',
             'active' => 'nullable|boolean',
         ]);
 
         $userId = $this->currentUserId();
         $item = $this->applyBranchFilter(InventoryItem::where('user_id', $userId), request())->findOrFail($id);
+        if (array_key_exists('hsn_sac', $validated) || array_key_exists('hsn_code', $validated) || array_key_exists('hsn', $validated)) {
+            $validated['hsn_sac'] = $validated['hsn_sac'] ?? $validated['hsn_code'] ?? $validated['hsn'] ?? null;
+            unset($validated['hsn_code'], $validated['hsn']);
+        }
         if (!Schema::hasColumn('inventory_items', 'unit')) {
             unset($validated['unit']);
         }
@@ -2192,6 +2205,10 @@ FILES:
             'payment_reference' => 'nullable|string|max:255',
             'due_at' => 'nullable|date',
             'paid_at' => 'nullable|date',
+            'item_name' => 'nullable|string|max:255',
+            'item_price' => 'nullable|integer',
+            'item_quantity' => 'nullable|integer|min:1',
+            'product_id' => 'nullable|integer|exists:inventory_items,id',
         ]);
 
         $userId = $this->currentUserId();
@@ -2225,6 +2242,19 @@ FILES:
         if (Schema::hasColumn('invoices', 'tax_inclusive')) {
             $invoice->tax_inclusive = true;
         }
+        if (!empty($validated['item_name'])) {
+            $invoice->item_name = $validated['item_name'];
+            $invoice->item_price = $validated['item_price'] ?? 0;
+            $invoice->item_quantity = max(1, (int) ($validated['item_quantity'] ?? 1));
+            $product = $this->findInventoryItem($validated['product_id'] ?? null, $validated['item_name'], $userId, $invoice->branch_id);
+            if ($product) {
+                $product->stock = max(0, $product->stock - $invoice->item_quantity);
+                $product->save();
+                if (Schema::hasColumn('invoices', 'product_id')) {
+                    $invoice->product_id = $product->id;
+                }
+            }
+        }
         InvoiceCalculator::applyTo($invoice)->save();
 
         return response()->json($invoice, 201);
@@ -2247,6 +2277,7 @@ FILES:
             'item_name' => 'nullable|string|max:255',
             'item_price' => 'nullable|integer',
             'item_quantity' => 'nullable|integer|min:1',
+            'product_id' => 'nullable|integer|exists:inventory_items,id',
         ]);
 
         $userId = $this->currentUserId();
@@ -2303,14 +2334,19 @@ FILES:
         if (isset($validated['date'])) {
             $invoice->date = $validated['date'];
         }
-        if (array_key_exists('item_name', $validated)) {
-            $invoice->item_name = $validated['item_name'];
-        }
-        if (array_key_exists('item_price', $validated)) {
-            $invoice->item_price = $validated['item_price'];
-        }
-        if (array_key_exists('item_quantity', $validated)) {
-            $invoice->item_quantity = max(1, (int) $validated['item_quantity']);
+
+        if (array_key_exists('item_name', $validated) || array_key_exists('item_quantity', $validated) || array_key_exists('product_id', $validated)) {
+            $newItemName = array_key_exists('item_name', $validated) ? $validated['item_name'] : $invoice->item_name;
+            $newItemQty = array_key_exists('item_quantity', $validated) ? max(1, (int) $validated['item_quantity']) : ($invoice->item_quantity ? max(1, (int) $invoice->item_quantity) : 1);
+            $newProductId = array_key_exists('product_id', $validated) ? $validated['product_id'] : (Schema::hasColumn('invoices', 'product_id') ? $invoice->product_id : null);
+
+            $this->syncInvoiceItemStock($invoice, $newItemName, $newItemQty, $newProductId);
+
+            $invoice->item_name = $newItemName;
+            if (array_key_exists('item_price', $validated)) {
+                $invoice->item_price = $validated['item_price'];
+            }
+            $invoice->item_quantity = $newItemName ? $newItemQty : null;
         }
 
         // Recalculate tax and total with the same maths as the preview and printed invoice
@@ -2325,9 +2361,96 @@ FILES:
     {
         $userId = $this->currentUserId();
         $invoice = $this->applyBranchFilter(Invoice::where('user_id', $userId), request())->findOrFail($id);
+
+        if (!empty(trim((string) $invoice->item_name))) {
+            $productId = Schema::hasColumn('invoices', 'product_id') ? $invoice->product_id : null;
+            $product = $this->findInventoryItem($productId, $invoice->item_name, $userId, $invoice->branch_id);
+            if ($product) {
+                $product->stock += max(1, (int) ($invoice->item_quantity ?: 1));
+                $product->save();
+            }
+        }
+
         $invoice->delete();
 
         return response()->json(['status' => 'success']);
+    }
+
+    protected function findInventoryItem(?int $productId, ?string $name, $userId, ?int $branchId = null): ?InventoryItem
+    {
+        if ($productId) {
+            $item = InventoryItem::where('user_id', $userId)->find($productId);
+            if ($item) {
+                return $item;
+            }
+        }
+
+        $trimmed = strtolower(trim((string) $name));
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if ($branchId) {
+            $item = InventoryItem::where('user_id', $userId)
+                ->where(function ($q) use ($branchId) {
+                    $q->where('branch_id', $branchId)->orWhereNull('branch_id');
+                })
+                ->whereRaw('LOWER(TRIM(name)) = ?', [$trimmed])
+                ->first();
+            if ($item) {
+                return $item;
+            }
+        }
+
+        return InventoryItem::where('user_id', $userId)
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$trimmed])
+            ->first();
+    }
+
+    protected function syncInvoiceItemStock(Invoice $invoice, ?string $newItemName, int $newItemQty, ?int $newProductId = null): void
+    {
+        $userId = $invoice->user_id ?: $this->currentUserId();
+        $branchId = $invoice->branch_id;
+
+        $oldName = trim((string) $invoice->item_name);
+        $oldQty = $invoice->item_quantity ? max(1, (int) $invoice->item_quantity) : 1;
+        $oldProductId = Schema::hasColumn('invoices', 'product_id') ? $invoice->product_id : null;
+
+        $newName = trim((string) $newItemName);
+        $hadOldItem = $oldName !== '';
+        $hasNewItem = $newName !== '';
+
+        if (!$hadOldItem && !$hasNewItem) {
+            return;
+        }
+
+        $oldProduct = $hadOldItem ? $this->findInventoryItem($oldProductId, $oldName, $userId, $branchId) : null;
+        $newProduct = $hasNewItem ? $this->findInventoryItem($newProductId, $newName, $userId, $branchId) : null;
+
+        if ($oldProduct && $newProduct && $oldProduct->id === $newProduct->id) {
+            $qtyDiff = $newItemQty - $oldQty;
+            if ($qtyDiff !== 0) {
+                $newProduct->stock = max(0, $newProduct->stock - $qtyDiff);
+                $newProduct->save();
+            }
+            if (Schema::hasColumn('invoices', 'product_id')) {
+                $invoice->product_id = $newProduct->id;
+            }
+        } else {
+            if ($oldProduct) {
+                $oldProduct->stock += $oldQty;
+                $oldProduct->save();
+            }
+            if ($newProduct) {
+                $newProduct->stock = max(0, $newProduct->stock - $newItemQty);
+                $newProduct->save();
+                if (Schema::hasColumn('invoices', 'product_id')) {
+                    $invoice->product_id = $newProduct->id;
+                }
+            } elseif (Schema::hasColumn('invoices', 'product_id')) {
+                $invoice->product_id = null;
+            }
+        }
     }
 
     private function createBillingInvoiceForJobCard(JobCard $card): ?Invoice

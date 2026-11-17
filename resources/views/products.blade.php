@@ -67,6 +67,26 @@
             <input type="number" id="prodStock" min="0" value="10" required placeholder="10">
           </div>
         </div>
+        <div class="modal-row">
+          <div class="field">
+            <label for="prodHsn">HSN Code</label>
+            <input type="text" id="prodHsn" placeholder="e.g. 34053000">
+          </div>
+          <div class="field">
+            <label for="prodUnit">Unit</label>
+            <input type="text" id="prodUnit" list="prodUnitSuggestions" placeholder="e.g. pcs, ml, L" value="pcs">
+            <datalist id="prodUnitSuggestions">
+              <option value="pcs">
+              <option value="ml">
+              <option value="L">
+              <option value="kg">
+              <option value="g">
+              <option value="bottle">
+              <option value="can">
+              <option value="pack">
+            </datalist>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn danger" id="deleteProductBtn" style="display:none;margin-right:auto;"><i class="ti ti-x"></i>Delete product</button>
