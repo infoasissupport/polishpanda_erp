@@ -74,17 +74,21 @@
           </div>
           <div class="field">
             <label for="prodUnit">Unit</label>
-            <input type="text" id="prodUnit" list="prodUnitSuggestions" placeholder="e.g. pcs, ml, L" value="pcs">
-            <datalist id="prodUnitSuggestions">
-              <option value="pcs">
-              <option value="ml">
-              <option value="L">
-              <option value="kg">
-              <option value="g">
-              <option value="bottle">
-              <option value="can">
-              <option value="pack">
-            </datalist>
+            <select id="prodUnit">
+              <option value="pcs">pcs (Pieces)</option>
+              <option value="bottle">bottle (Bottle)</option>
+              <option value="can">can (Can)</option>
+              <option value="ml">ml (Milliliters)</option>
+              <option value="L">L (Liters)</option>
+              <option value="kg">kg (Kilograms)</option>
+              <option value="g">g (Grams)</option>
+              <option value="pack">pack (Pack)</option>
+              <option value="box">box (Box)</option>
+              <option value="set">set (Set)</option>
+              <option value="drum">drum (Drum)</option>
+              <option value="custom">+ Other (Custom Unit)</option>
+            </select>
+            <input type="text" id="prodCustomUnit" placeholder="Type custom unit..." style="display:none;margin-top:6px;">
           </div>
         </div>
       </div>

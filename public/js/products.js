@@ -123,8 +123,13 @@
   function resetForm() {
     form.reset();
     document.getElementById('prodStock').value = 10;
-    var unitEl = document.getElementById('prodUnit');
-    if (unitEl) unitEl.value = 'pcs';
+    var unitSelect = document.getElementById('prodUnit');
+    if (unitSelect) unitSelect.value = 'pcs';
+    var customUnitEl = document.getElementById('prodCustomUnit');
+    if (customUnitEl) {
+      customUnitEl.value = '';
+      customUnitEl.style.display = 'none';
+    }
     var hsnEl = document.getElementById('prodHsn');
     if (hsnEl) hsnEl.value = '';
   }
@@ -152,8 +157,28 @@
     document.getElementById('prodStock').value = prod.stock != null ? prod.stock : 0;
     var hsnEl = document.getElementById('prodHsn');
     if (hsnEl) hsnEl.value = prod.hsn_sac || prod.hsn_code || '';
-    var unitEl = document.getElementById('prodUnit');
-    if (unitEl) unitEl.value = prod.unit || 'pcs';
+
+    var unitSelect = document.getElementById('prodUnit');
+    var customUnitEl = document.getElementById('prodCustomUnit');
+    var unitVal = prod.unit || 'pcs';
+    if (unitSelect) {
+      var matchingOpt = Array.from(unitSelect.options).find(function (opt) {
+        return opt.value.toLowerCase() === unitVal.toLowerCase();
+      });
+      if (matchingOpt) {
+        unitSelect.value = matchingOpt.value;
+        if (customUnitEl) {
+          customUnitEl.value = '';
+          customUnitEl.style.display = 'none';
+        }
+      } else {
+        unitSelect.value = 'custom';
+        if (customUnitEl) {
+          customUnitEl.value = unitVal;
+          customUnitEl.style.display = 'block';
+        }
+      }
+    }
 
     window.SW.openModal('productModal');
   }
@@ -216,7 +241,12 @@
     var price = Number(document.getElementById('prodPrice').value);
     var stock = Number(document.getElementById('prodStock').value);
     var hsn = (document.getElementById('prodHsn') ? document.getElementById('prodHsn').value : '').trim();
-    var unit = (document.getElementById('prodUnit') ? document.getElementById('prodUnit').value : '').trim() || 'pcs';
+    var unitSelect = document.getElementById('prodUnit');
+    var customUnitInput = document.getElementById('prodCustomUnit');
+    var unit = unitSelect ? unitSelect.value : 'pcs';
+    if (unit === 'custom') {
+      unit = (customUnitInput ? customUnitInput.value.trim() : '') || 'pcs';
+    }
 
     if (!name || isNaN(price)) {
       alert('Please fill out Product name and Price.');
@@ -268,6 +298,19 @@
     deleteBtn.addEventListener('click', function () {
       if (!editingId) return;
       removeProduct(editingId);
+    });
+  }
+
+  var prodUnitSelect = document.getElementById('prodUnit');
+  var prodCustomUnitInput = document.getElementById('prodCustomUnit');
+  if (prodUnitSelect && prodCustomUnitInput) {
+    prodUnitSelect.addEventListener('change', function () {
+      if (this.value === 'custom') {
+        prodCustomUnitInput.style.display = 'block';
+        prodCustomUnitInput.focus();
+      } else {
+        prodCustomUnitInput.style.display = 'none';
+      }
     });
   }
 
