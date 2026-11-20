@@ -2618,6 +2618,7 @@ FILES:
         $amount = $subtotal;
         $branchId = $card->branch_id ?? ($booking->branch_id ?? $this->defaultBranchId());
 
+        $cardDate = $card->created_at ? $card->created_at->format('d M Y') : now()->format('d M Y');
         $invoiceData = [
             'id' => $this->nextInvoiceNumber(),
             'user_id' => $userId,
@@ -2627,8 +2628,11 @@ FILES:
             'amount' => $amount,
             'method' => 'pending',
             'status' => 'pending',
-            'date' => now()->format('d M Y'),
+            'date' => $cardDate,
         ];
+        if ($card->created_at) {
+            $invoiceData['created_at'] = $card->created_at;
+        }
 
         if (Schema::hasColumn('invoices', 'invoice_number')) {
             $invoiceData['invoice_number'] = $invoiceData['id'];

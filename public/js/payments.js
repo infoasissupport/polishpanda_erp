@@ -92,9 +92,37 @@
     return { number: '—', model: v };
   }
 
+  function parseDateString(str) {
+    if (!str) return null;
+    if (str instanceof Date) return isNaN(str.getTime()) ? null : str;
+    if (typeof str !== 'string') str = String(str);
+    str = str.trim();
+    if (!str) return null;
+
+    var isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoMatch) {
+      var y = parseInt(isoMatch[1], 10);
+      var m = parseInt(isoMatch[2], 10) - 1;
+      var d = parseInt(isoMatch[3], 10);
+      return new Date(y, m, d);
+    }
+
+    var dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (dmyMatch) {
+      var d = parseInt(dmyMatch[1], 10);
+      var m = parseInt(dmyMatch[2], 10) - 1;
+      var y = parseInt(dmyMatch[3], 10);
+      return new Date(y, m, d);
+    }
+
+    var dt = new Date(str);
+    if (!isNaN(dt.getTime())) return dt;
+
+    return null;
+  }
+
   function formatInvoiceDateTime(inv) {
-    var raw = inv.created_at || inv.date;
-    var d = raw ? new Date(raw) : null;
+    var d = invoiceDate(inv);
     if (!d || isNaN(d.getTime())) return escapeHtml(inv.date || '—');
     return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
@@ -386,9 +414,15 @@
   }
 
   function invoiceDate(inv) {
-    var raw = inv.created_at || inv.date;
-    var d = new Date(raw);
-    return isNaN(d.getTime()) ? null : d;
+    if (!inv) return null;
+    // Prioritize the invoice's official date over database creation/update timestamps
+    var d = parseDateString(inv.date);
+    if (d) return d;
+    if (inv.created_at) {
+      var cd = parseDateString(inv.created_at);
+      if (cd) return cd;
+    }
+    return null;
   }
 
   function matchesFilter(inv) {
@@ -407,18 +441,22 @@
       } else if (from || to) {
         passesDate = false;
       }
-    } else if (tf !== 'all' && d) {
-      var now = new Date();
-      if (tf === 'daily') {
-        if (d.toDateString() !== now.toDateString()) passesDate = false;
-      } else if (tf === 'weekly') {
-        var weekAgo = new Date();
-        weekAgo.setDate(now.getDate() - 7);
-        if (d < weekAgo) passesDate = false;
-      } else if (tf === 'monthly') {
-        var monthAgo = new Date();
-        monthAgo.setMonth(now.getMonth() - 1);
-        if (d < monthAgo) passesDate = false;
+    } else if (tf !== 'all') {
+      if (!d) {
+        passesDate = false;
+      } else {
+        var now = new Date();
+        if (tf === 'daily') {
+          if (d.toDateString() !== now.toDateString()) passesDate = false;
+        } else if (tf === 'weekly') {
+          var weekAgo = new Date();
+          weekAgo.setDate(now.getDate() - 7);
+          if (d < weekAgo) passesDate = false;
+        } else if (tf === 'monthly') {
+          var monthAgo = new Date();
+          monthAgo.setMonth(now.getMonth() - 1);
+          if (d < monthAgo) passesDate = false;
+        }
       }
     }
     
