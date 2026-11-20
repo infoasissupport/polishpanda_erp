@@ -452,6 +452,7 @@
     var totalAmountSum = 0, totalAmountCount = 0;
     var cashSum = 0, cashCount = 0;
     var upiSum = 0, upiCount = 0;
+    var cardSum = 0, cardCount = 0;
     var splitSum = 0, splitCount = 0;
     
     var methodFilter = document.getElementById('invoiceFilterSelect') ? document.getElementById('invoiceFilterSelect').value : 'all';
@@ -476,6 +477,9 @@
           } else if (m === 'upi') {
             upiSum += amt;
             upiCount++;
+          } else if (m === 'card') {
+            cardSum += amt;
+            cardCount++;
           } else if (m === 'upi_cash' || m === 'split') {
             splitSum += amt;
             splitCount++;
@@ -500,6 +504,11 @@
     if (upiEl) upiEl.textContent = formatAmount(upiSum);
     var upiSub = document.getElementById('payKpiUpiSub');
     if (upiSub) upiSub.textContent = upiCount + (upiCount === 1 ? ' Invoice' : ' Invoices');
+
+    var cardEl = document.getElementById('payKpiCard');
+    if (cardEl) cardEl.textContent = formatAmount(cardSum);
+    var cardSub = document.getElementById('payKpiCardSub');
+    if (cardSub) cardSub.textContent = cardCount + (cardCount === 1 ? ' Invoice' : ' Invoices');
 
     var totalEl = document.getElementById('payKpiTotal');
     if (totalEl) totalEl.textContent = formatAmount(splitSum);

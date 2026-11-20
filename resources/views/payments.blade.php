@@ -56,6 +56,14 @@
         <div class="pay-kpi-sub" id="payKpiUpiSub">0 Invoices</div>
       </div>
     </div>
+    <div class="pay-kpi pay-kpi--card">
+      <div class="pay-kpi-icon" style="background:#FFFBEB;color:#D97706;"><i class="ti ti-credit-card"></i></div>
+      <div class="pay-kpi-body">
+        <div class="pay-kpi-label">Total Card</div>
+        <div class="pay-kpi-value" id="payKpiCard">₹0</div>
+        <div class="pay-kpi-sub" id="payKpiCardSub">0 Invoices</div>
+      </div>
+    </div>
     <div class="pay-kpi pay-kpi--split">
       <div class="pay-kpi-icon" style="background:#F3E8FF;color:#A855F7;"><i class="ti ti-wallet"></i></div>
       <div class="pay-kpi-body">

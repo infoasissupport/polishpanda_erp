@@ -272,7 +272,8 @@ overflow: auto;
 .pay-kpi:nth-child(1), .pay-kpi.pay-kpi--total{--kpi-wave:#ef4444;}
 .pay-kpi:nth-child(2), .pay-kpi.pay-kpi--cash{--kpi-wave:#10B981;}
 .pay-kpi:nth-child(3), .pay-kpi.pay-kpi--upi{--kpi-wave:#3B82F6;}
-.pay-kpi:nth-child(4), .pay-kpi.pay-kpi--split{--kpi-wave:#A855F7;}
+.pay-kpi.pay-kpi--card{--kpi-wave:#F59E0B;}
+.pay-kpi.pay-kpi--split{--kpi-wave:#A855F7;}
 .pay-kpi-icon, .pay-kpi-body{position:relative;z-index:1;}
 .pay-kpi::after{content:'' !important;display:block !important;z-index:0 !important;}
 
@@ -336,6 +337,7 @@ section#payments .view-header{
 #payments .pay-kpi:nth-child(1), #payments .pay-kpi.pay-kpi--total{--kpi-tint:#fff7ed;--kpi-ink:#ef4444;--kpi-tile:#fff7ed;--kpi-wave:#ef4444;}
 #payments .pay-kpi:nth-child(2), #payments .pay-kpi.pay-kpi--cash{--kpi-tint:#ecfbf1;--kpi-ink:#16a34a;--kpi-tile:#d6f5e1;--kpi-wave:#10B981;}
 #payments .pay-kpi:nth-child(3), #payments .pay-kpi.pay-kpi--upi{--kpi-tint:#eef4ff;--kpi-ink:#2563eb;--kpi-tile:#dce8ff;--kpi-wave:#3B82F6;}
+#payments .pay-kpi.pay-kpi--card{--kpi-tint:#fffbeb;--kpi-ink:#d97706;--kpi-tile:#fef3c7;--kpi-wave:#f59e0b;}
 #payments .pay-kpi:nth-child(4), #payments .pay-kpi.pay-kpi--split{--kpi-tint:#f5f0ff;--kpi-ink:#7c3aed;--kpi-tile:#ebe1ff;--kpi-wave:#A855F7;}
 #payments .pay-kpi::after{content:'' !important;display:block !important;z-index:0 !important;}
 /* the icon colours are inline in the markup; the card palette wins */
