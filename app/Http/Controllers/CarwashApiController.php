@@ -1634,18 +1634,35 @@ FILES:
         $validated = $request->validate([
             'category' => 'required|string|max:255',
             'name' => 'required|string|max:255',
-            'amount' => 'required|integer',
+            'amount' => 'required|numeric|min:0',
             'expense_date' => 'required|date',
             'notes' => 'nullable|string',
             'branch_id' => 'nullable|integer',
             'ref_id' => 'nullable|integer',
+            'vehicle_id' => 'nullable|integer',
         ]);
 
         $userId = $this->currentUserId();
         $validated['user_id'] = $userId;
+        $validated['amount'] = (int) round($validated['amount']);
 
-        $expense = Expense::create($validated);
-        $expense->update(['branch_id' => $this->defaultBranchId()]);
+        $expenseData = $validated;
+        if (!Schema::hasColumn('expenses', 'vehicle_id')) {
+            unset($expenseData['vehicle_id']);
+        }
+
+        $expense = Expense::create($expenseData);
+        if ($this->defaultBranchId() && empty($expense->branch_id)) {
+            $expense->update(['branch_id' => $this->defaultBranchId()]);
+        }
+
+        // When "Use Product" is recorded as an expense, decrement the product inventory stock
+        if ($validated['category'] === 'use_product' && !empty($validated['ref_id'])) {
+            $product = InventoryItem::where('user_id', $userId)->find($validated['ref_id']);
+            if ($product && $product->stock > 0) {
+                $product->decrement('stock', 1);
+            }
+        }
 
         return response()->json($expense, 201);
     }
@@ -1655,18 +1672,25 @@ FILES:
         $validated = $request->validate([
             'category' => 'nullable|string|max:255',
             'name' => 'nullable|string|max:255',
-            'amount' => 'nullable|integer',
+            'amount' => 'nullable|numeric|min:0',
             'expense_date' => 'nullable|date',
             'notes' => 'nullable|string',
             'branch_id' => 'nullable|integer',
             'ref_id' => 'nullable|integer',
+            'vehicle_id' => 'nullable|integer',
         ]);
 
         $userId = $this->currentUserId();
         $expense = $this->applyBranchFilter(Expense::where('user_id', $userId), request())->findOrFail($id);
 
+        if (isset($validated['amount'])) {
+            $validated['amount'] = (int) round($validated['amount']);
+        }
         if (!Schema::hasColumn('expenses', 'branch_id')) {
             unset($validated['branch_id']);
+        }
+        if (!Schema::hasColumn('expenses', 'vehicle_id')) {
+            unset($validated['vehicle_id']);
         }
 
         $expense->update($validated);
@@ -1677,6 +1701,14 @@ FILES:
     {
         $userId = $this->currentUserId();
         $expense = $this->applyBranchFilter(Expense::where('user_id', $userId), request())->findOrFail($id);
+
+        if ($expense->category === 'use_product' && !empty($expense->ref_id)) {
+            $product = InventoryItem::where('user_id', $userId)->find($expense->ref_id);
+            if ($product) {
+                $product->increment('stock', 1);
+            }
+        }
+
         $expense->delete();
 
         return response()->json(['status' => 'success']);

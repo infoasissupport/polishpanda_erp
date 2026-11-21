@@ -98,6 +98,7 @@
           <option value="rent">Rent</option>
           <option value="staff_salary">Staff Salary</option>
           <option value="inventory">Inventory</option>
+          <option value="use_product">Use Product</option>
           <option value="utilities">Utilities</option>
           <option value="other">Other</option>
         </select>
@@ -167,6 +168,7 @@
               <option value="rent">Rent</option>
               <option value="staff_salary">Staff Salary</option>
               <option value="inventory">Inventory Purchase</option>
+              <option value="use_product">Use Product</option>
               <option value="utilities">Utilities (Water, Electricity, etc.)</option>
               <option value="other" selected>Other Expense</option>
             </select>
@@ -199,6 +201,24 @@
           <label for="expInventory">Select Inventory Item</label>
           <select id="expInventory">
             <option value="">-- Select Inventory Item --</option>
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <!-- Use Product Dropdown (Visible only for Use Product Category) -->
+        <div class="field" id="expProductRow" style="display:none; margin-bottom: 14px;">
+          <label for="expProduct">Select Product</label>
+          <select id="expProduct">
+            <option value="">-- Select Product --</option>
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <!-- Vehicle Dropdown (Visible when Product is selected) -->
+        <div class="field" id="expVehicleRow" style="display:none; margin-bottom: 14px;">
+          <label for="expVehicle">Select Vehicle</label>
+          <select id="expVehicle">
+            <option value="">-- Select Vehicle --</option>
             <!-- Populated dynamically -->
           </select>
         </div>
