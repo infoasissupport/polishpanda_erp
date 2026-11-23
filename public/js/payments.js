@@ -529,27 +529,42 @@
     var formatAmount = function(val) { return '₹' + Math.round(val).toLocaleString('en-IN'); };
 
     var totalAmtEl = document.getElementById('payKpiTotalAmount');
-    if (totalAmtEl) totalAmtEl.textContent = formatAmount(totalAmountSum);
+    if (totalAmtEl) {
+      totalAmtEl.textContent = formatAmount(totalAmountSum);
+      totalAmtEl.title = formatAmount(totalAmountSum);
+    }
     var totalAmtSub = document.getElementById('payKpiTotalAmountSub');
     if (totalAmtSub) totalAmtSub.textContent = totalAmountCount + (totalAmountCount === 1 ? ' Invoice' : ' Invoices');
 
     var cashEl = document.getElementById('payKpiCash');
-    if (cashEl) cashEl.textContent = formatAmount(cashSum);
+    if (cashEl) {
+      cashEl.textContent = formatAmount(cashSum);
+      cashEl.title = formatAmount(cashSum);
+    }
     var cashSub = document.getElementById('payKpiCashSub');
     if (cashSub) cashSub.textContent = cashCount + (cashCount === 1 ? ' Invoice' : ' Invoices');
 
     var upiEl = document.getElementById('payKpiUpi');
-    if (upiEl) upiEl.textContent = formatAmount(upiSum);
+    if (upiEl) {
+      upiEl.textContent = formatAmount(upiSum);
+      upiEl.title = formatAmount(upiSum);
+    }
     var upiSub = document.getElementById('payKpiUpiSub');
     if (upiSub) upiSub.textContent = upiCount + (upiCount === 1 ? ' Invoice' : ' Invoices');
 
     var cardEl = document.getElementById('payKpiCard');
-    if (cardEl) cardEl.textContent = formatAmount(cardSum);
+    if (cardEl) {
+      cardEl.textContent = formatAmount(cardSum);
+      cardEl.title = formatAmount(cardSum);
+    }
     var cardSub = document.getElementById('payKpiCardSub');
     if (cardSub) cardSub.textContent = cardCount + (cardCount === 1 ? ' Invoice' : ' Invoices');
 
     var totalEl = document.getElementById('payKpiTotal');
-    if (totalEl) totalEl.textContent = formatAmount(splitSum);
+    if (totalEl) {
+      totalEl.textContent = formatAmount(splitSum);
+      totalEl.title = formatAmount(splitSum);
+    }
     var totalSub = document.getElementById('payKpiTotalSub');
     if (totalSub) totalSub.textContent = splitCount + (splitCount === 1 ? ' Invoice' : ' Invoices');
   }
