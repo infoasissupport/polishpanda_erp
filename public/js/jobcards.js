@@ -33,7 +33,11 @@
   }
 
   function findCard(id) {
-    return JOBCARDS.filter(function (c) { return c.id === id; })[0];
+    if (id === null || id === undefined) return null;
+    var cleanId = String(id).replace(/^[#\s]+/, '').trim();
+    return JOBCARDS.filter(function (c) {
+      return String(c.id) === cleanId || String(c.id) === String(id);
+    })[0];
   }
 
   function stageColor(stage) {
@@ -1040,6 +1044,20 @@
     });
   }
 
+  var initialUrlCardChecked = false;
+  function checkUrlForJobCard() {
+    if (initialUrlCardChecked) return;
+    var params = new URLSearchParams(window.location.search);
+    var targetId = params.get('id') || params.get('jobcard_id');
+    if (targetId) {
+      var card = findCard(targetId);
+      if (card) {
+        initialUrlCardChecked = true;
+        openDetail(card.id);
+      }
+    }
+  }
+
   async function loadJobCards() {
     try {
       var res = await fetch('/api/jobcards?t=' + new Date().getTime());
@@ -1053,6 +1071,7 @@
           return true;
         });
         renderTable();
+        checkUrlForJobCard();
       }
     } catch (err) {
       console.error('Failed to load jobcards:', err);
