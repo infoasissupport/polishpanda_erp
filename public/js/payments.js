@@ -415,7 +415,13 @@
 
   function invoiceDate(inv) {
     if (!inv) return null;
-    // Prioritize the invoice's official date over database creation/update timestamps
+    // For paid invoices, prioritize the date on which payment was actually made (paid_at)
+    // so daily/weekly filters and KPIs reflect when payment was actually collected
+    if (inv.status === 'paid' && inv.paid_at) {
+      var pd = parseDateString(inv.paid_at);
+      if (pd) return pd;
+    }
+    // For pending invoices (or paid invoices without paid_at), use official invoice date or creation date
     var d = parseDateString(inv.date);
     if (d) return d;
     if (inv.created_at) {
@@ -423,6 +429,17 @@
       if (cd) return cd;
     }
     return null;
+  }
+
+  function getInvoiceDisplayDate(inv) {
+    if (!inv) return '—';
+    if (inv.status === 'paid' && inv.paid_at) {
+      var pd = parseDateString(inv.paid_at);
+      if (pd) {
+        return pd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    }
+    return inv.last_wash || inv.date || '—';
   }
 
   function matchesFilter(inv) {
@@ -595,7 +612,7 @@
         '<td class="inv-amount">₹' + getInvoiceEffectiveTotal(inv).toLocaleString('en-IN') + '</td>' +
         '<td class="inv-method">' + methodCell(inv) + '</td>' +
         '<td class="inv-status">' + statusCell(inv) + '</td>' +
-        '<td class="inv-wash"><div class="inv-wash-date">' + escapeHtml(inv.last_wash || '—') + '</div>' +
+        '<td class="inv-wash"><div class="inv-wash-date">' + escapeHtml(getInvoiceDisplayDate(inv)) + '</div>' +
           (inv.loyalty_count > 0 ? '<div class="inv-wash-count"><svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path fill="#F5B301" d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>Washed ' + inv.loyalty_count + ' ' + (inv.loyalty_count === 1 ? 'Time' : 'Times') + '</div>' : '') + '</td>';
       tr.addEventListener('click', function () { selectInvoice(inv.id); });
       tableBody.appendChild(tr);
@@ -640,7 +657,7 @@
     var cgstAmount = t.cgstAmount, sgstAmount = t.sgstAmount, gst = t.gst;
     var discount = t.discount, total = t.total;
 
-    document.getElementById('previewMeta').textContent = inv.id + ' · ' + inv.date + (inv.branch_id ? ' · Branch #' + inv.branch_id : '');
+    document.getElementById('previewMeta').textContent = inv.id + ' · ' + getInvoiceDisplayDate(inv) + (inv.branch_id ? ' · Branch #' + inv.branch_id : '');
     document.getElementById('previewService').textContent = inv.service;
     // Service shows its full price; the products listed under it are included in this amount
     document.getElementById('previewAmount').textContent = formatMoney(t.serviceTotal);
@@ -1029,7 +1046,8 @@
       var payload = {
         _method: 'PUT',
         status: 'paid',
-        method: method
+        method: method,
+        paid_at: new Date().toISOString()
       };
       
       if (method === 'upi_cash') {

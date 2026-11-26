@@ -2240,7 +2240,12 @@ FILES:
                 $lastWash = $lastWashByPlate[strtolower($plate)] ?? null;
             }
             $inv->loyalty_count = $count;
-            $inv->last_wash = $lastWash ?: $inv->date;
+            $paymentDateStr = ($inv->status === 'paid' && $inv->paid_at)
+                ? \Carbon\Carbon::parse($inv->paid_at)->format('d M Y')
+                : ($inv->date ?: ($inv->created_at ? $inv->created_at->format('d M Y') : null));
+            $inv->last_wash = ($inv->status === 'paid' && $inv->paid_at)
+                ? $paymentDateStr
+                : ($lastWash ?: $paymentDateStr);
 
             $serviceProducts = [];
             $productsTotal = 0;
@@ -2379,16 +2384,18 @@ FILES:
         if (isset($validated['status'])) {
             $invoice->status = $validated['status'];
             $invoice->payment_status = $validated['status'];
-            if ($validated['status'] === 'paid' && !$invoice->paid_at) {
+            if ($validated['status'] === 'paid') {
                 $invoice->paid_at = $validated['paid_at'] ?? now();
+                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
             }
         }
 
         if (isset($validated['payment_status'])) {
             $invoice->payment_status = $validated['payment_status'];
             $invoice->status = $validated['payment_status'];
-            if ($validated['payment_status'] === 'paid' && !$invoice->paid_at) {
+            if ($validated['payment_status'] === 'paid') {
                 $invoice->paid_at = $validated['paid_at'] ?? now();
+                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
             }
         }
 
@@ -2422,6 +2429,9 @@ FILES:
 
         if (array_key_exists('paid_at', $validated)) {
             $invoice->paid_at = $validated['paid_at'];
+            if ($invoice->paid_at && $invoice->status === 'paid') {
+                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
+            }
         }
 
         if (isset($validated['date'])) {

@@ -189,7 +189,9 @@ Kollam, Kerala - 691306",
         ]);
     }
     
-    $date = $invoice->date ?: $invoice->created_at->format('d M Y');
+    $date = ($invoice->status === 'paid' && $invoice->paid_at)
+        ? $invoice->paid_at->format('d M Y')
+        : ($invoice->date ?: ($invoice->created_at ? $invoice->created_at->format('d M Y') : now()->format('d M Y')));
 
     // Same maths as computeInvoiceTotals() in public/js/payments.js (see App\Support\InvoiceCalculator).
     // A service's products are a breakdown of its price, never an extra charge.
