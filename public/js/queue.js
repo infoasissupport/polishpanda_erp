@@ -32,6 +32,7 @@
   var completedTabMode = 'today';
   var lastCompletedToday = [];
   var lastCompletedAll = [];
+  var lastAllJobcards = [];
 
   function matchesWaitlistSearch(b, term) {
     if (!term) return true;
@@ -285,6 +286,7 @@
   }
 
   function renderCompleted(jobcards) {
+    lastAllJobcards = jobcards;
     lastCompletedAll = jobcards.filter(function (card) {
       return card.stage === 'completed' && card.completed_at_at;
     }).sort(function (a, b) {
@@ -355,7 +357,10 @@
   }
 
   function openCompletedJobModal(id) {
-    var card = lastCompletedAll.filter(function (c) { return c.id === id; })[0];
+    var card = lastAllJobcards.filter(function (c) { return String(c.id) === String(id); })[0];
+    if (!card) {
+      card = lastCompletedAll.filter(function (c) { return String(c.id) === String(id); })[0];
+    }
     if (!card) return;
 
     currentCompletedJobId = card.id;
@@ -363,19 +368,55 @@
     var vehicleParts = parseVehicleString(card.vehicle);
     var vehicleLabel = [vehicleParts.plate, vehicleParts.model].filter(Boolean).join(' · ') || card.vehicle || '—';
     var completedTime = card.completed_at_at ? formatDateTime(new Date(card.completed_at_at)) : '—';
-    var checklist = card.checklist || [];
+    var checklist = Array.isArray(card.checklist) ? card.checklist : [];
     var doneCount = checklist.filter(function (item) { return item.done; }).length;
 
-    var checklistHtml = checklist.length
-      ? checklist.map(function (item) {
-          return '<div class="cjm-checklist-row' + (item.done ? ' done' : '') + '"><span class="cjm-check">' + (item.done ? CHECK_ICON_SVG : '') + '</span><span>' + escapeHtml(item.label) + '</span></div>';
-        }).join('')
-      : '<div style="color:var(--text-3);font-size:12.5px;">No checklist recorded.</div>';
+    var isWashing = card.stage === 'inprogress';
+    var isStarting = card.stage === 'assigned';
+    var isCompleted = card.stage === 'completed';
+    var isCancelled = card.stage === 'cancelled';
+
+    var stageLabel = 'Completed';
+    var stageStyle = 'background:#E7F7EE;color:#166534;';
+    if (isWashing) {
+      stageLabel = 'Washing';
+      stageStyle = 'background:#E7F7EE;color:#16a34a;';
+    } else if (isStarting) {
+      stageLabel = 'Starting';
+      stageStyle = 'background:#FFF4E0;color:#92400E;';
+    } else if (isCancelled) {
+      stageLabel = 'Cancelled';
+      stageStyle = 'background:#FEE2E2;color:#991B1B;';
+    }
 
     var titleEl = document.getElementById('completedJobModalTitle');
     if (titleEl) {
-      titleEl.innerHTML = '<span class="jc-modal-id">#' + escapeHtml(card.id) + '</span> <span class="status-pill" style="background:#E7F7EE;color:#166534;">Completed</span>';
+      titleEl.innerHTML = '<span class="jc-modal-id">#' + escapeHtml(card.id) + '</span> <span class="status-pill" style="' + stageStyle + '">' + stageLabel + '</span>';
     }
+
+    var timeMeta = '';
+    if (isCompleted) {
+      timeMeta = '<span><i class="ti ti-clock-hour-4"></i>Completed ' + escapeHtml(completedTime) + '</span>';
+    } else {
+      var bayStartDate = getBayStartDate(card);
+      var startTimeLabel = bayStartDate ? formatTime12(bayStartDate) : (card.started_at || '—');
+      var elapsedLabel = bayStartDate ? formatElapsedMinutes(bayStartDate) : '';
+      timeMeta = '<span><i class="ti ti-clock-hour-4"></i>Started ' + escapeHtml(startTimeLabel) + (elapsedLabel ? ' (' + escapeHtml(elapsedLabel) + ')' : '') + '</span>';
+    }
+
+    var paymentMeta = '';
+    if (card.invoice) {
+      var isPaid = card.invoice.status === 'paid';
+      paymentMeta = '<span><i class="ti ti-credit-card"></i><span style="color:' + (isPaid ? '#166534' : '#991b1b') + ';font-weight:600;">' + (isPaid ? 'Payment Paid' : 'Payment Pending') + '</span></span>';
+    }
+
+    var checklistHtml = checklist.length
+      ? checklist.map(function (item, idx) {
+          return '<div class="cjm-checklist-row' + (item.done ? ' done' : '') + '" data-index="' + idx + '" style="cursor:pointer;"><span class="cjm-check">' + (item.done ? CHECK_ICON_SVG : '') + '</span><span>' + escapeHtml(item.label) + '</span></div>';
+        }).join('')
+      : '<div style="color:var(--text-3);font-size:12.5px;">No checklist recorded.</div>';
+
+    var displayNote = card.note || card.booking_notes || '';
 
     var bodyEl = document.getElementById('completedJobModalBody');
     if (bodyEl) {
@@ -389,7 +430,8 @@
           '<span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 6 6L16 13l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2Z" stroke-linejoin="round"/></svg>' + escapeHtml(card.phone || '—') + '</span>' +
           '<span><i class="ti ti-map-pin"></i>' + escapeHtml(card.bay || '—') + '</span>' +
           '<span><i class="ti ti-id-badge-2"></i>' + escapeHtml(card.staff || 'Unassigned') + '</span>' +
-          '<span><i class="ti ti-clock-hour-4"></i>Completed ' + escapeHtml(completedTime) + '</span>' +
+          timeMeta +
+          paymentMeta +
         '</div>' +
         '<div class="cjm-section">' +
           '<div class="cjm-section-head"><h4>Checklist</h4><span class="cjm-checklist-count">' + doneCount + '/' + checklist.length + '</span></div>' +
@@ -407,11 +449,81 @@
             buildTypedPhotoTilesHtml(card.id, 'after', card.photos_after || 0, card.updated_at) +
           '</div>' +
         '</div>' +
-        (card.note ? '<div class="cjm-section"><h4>Damage note</h4><p class="cjm-note">' + escapeHtml(card.note) + '</p></div>' : '');
+        (displayNote ? '<div class="cjm-section"><h4>Damage / Booking note</h4><p class="cjm-note">' + escapeHtml(displayNote) + '</p></div>' : '');
+
+      // Bind checklist clicks
+      var rows = bodyEl.querySelectorAll('.cjm-checklist-row');
+      rows.forEach(function (row) {
+        row.addEventListener('click', async function () {
+          var idx = Number(row.getAttribute('data-index'));
+          if (isNaN(idx) || !card.checklist || !card.checklist[idx]) return;
+          card.checklist[idx].done = !card.checklist[idx].done;
+          row.classList.toggle('done', card.checklist[idx].done);
+          var checkSpan = row.querySelector('.cjm-check');
+          if (checkSpan) {
+            checkSpan.innerHTML = card.checklist[idx].done ? CHECK_ICON_SVG : '';
+          }
+          var done = card.checklist.filter(function (it) { return it.done; }).length;
+          var countEl = bodyEl.querySelector('.cjm-checklist-count');
+          if (countEl) countEl.textContent = done + '/' + card.checklist.length;
+          try {
+            await fetch('/api/jobcards/' + card.id, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({ checklist: card.checklist, stage: card.stage })
+            });
+          } catch (err) {
+            console.error('Failed to update checklist:', err);
+          }
+        });
+      });
     }
 
-    var fullLink = document.getElementById('completedJobFullLink');
-    if (fullLink) fullLink.href = '/jobcards?id=' + encodeURIComponent(card.id);
+    var footerEl = document.getElementById('completedJobModalFooter');
+    if (footerEl) {
+      var footerHtml = '<a class="btn" id="completedJobFullLink" href="/jobcards?id=' + encodeURIComponent(card.id) + '"><i class="ti ti-external-link"></i>Open in Job Cards</a>';
+      footerHtml += '<span style="flex:1;"></span>';
+      if (isWashing) {
+        footerHtml += '<button type="button" class="btn btn-accent" id="cjmAdvanceBtn"><i class="ti ti-check"></i>Mark Completed</button>';
+      } else if (isStarting) {
+        footerHtml += '<button type="button" class="btn btn-accent" id="cjmAdvanceBtn"><i class="ti ti-player-play"></i>Start Job</button>';
+      }
+      footerHtml += '<button type="button" class="btn" onclick="window.SW.closeModal(\'completedJobModal\')">Close</button>';
+      footerEl.innerHTML = footerHtml;
+
+      var advBtn = document.getElementById('cjmAdvanceBtn');
+      if (advBtn) {
+        advBtn.addEventListener('click', async function () {
+          advBtn.disabled = true;
+          var newStage = isStarting ? 'inprogress' : 'completed';
+          try {
+            var bodyPayload = { stage: newStage };
+            if (newStage === 'completed') {
+              bodyPayload.completed_at_at = new Date().toISOString();
+            }
+            var res = await fetch('/api/jobcards/' + card.id, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify(bodyPayload)
+            });
+            if (res.ok) {
+              window.SW.closeModal('completedJobModal');
+              window.SW.showToast(newStage === 'completed' ? 'Job completed!' : 'Job started!');
+              await loadQueue();
+            } else {
+              alert('Failed to update job stage.');
+              advBtn.disabled = false;
+            }
+          } catch (e) {
+            console.error(e);
+            advBtn.disabled = false;
+          }
+        });
+      }
+    } else {
+      var fullLink = document.getElementById('completedJobFullLink');
+      if (fullLink) fullLink.href = '/jobcards?id=' + encodeURIComponent(card.id);
+    }
 
     window.SW.openModal('completedJobModal');
   }
@@ -477,6 +589,7 @@
       var jobcards = await jcRes.json();
       var bookings = await bkRes.json();
       var bays = await bayRes.json();
+      lastAllJobcards = jobcards;
 
       window._bayTabsState = window._bayTabsState || {};
       
@@ -692,7 +805,7 @@
 
       var viewJobBtn = e.target.closest('[data-view-job]');
       if (viewJobBtn) {
-        window.location.href = '/jobcards?id=' + encodeURIComponent(viewJobBtn.getAttribute('data-view-job'));
+        openCompletedJobModal(viewJobBtn.getAttribute('data-view-job'));
         return;
       }
 

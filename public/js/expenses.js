@@ -30,6 +30,10 @@
   var staffSelect = document.getElementById('expStaff');
   var inventoryRow = document.getElementById('expInventoryRow');
   var inventorySelect = document.getElementById('expInventory');
+  var productRow = document.getElementById('expProductRow');
+  var productSelect = document.getElementById('expProduct');
+  var vehicleRow = document.getElementById('expVehicleRow');
+  var vehicleSelect = document.getElementById('expVehicle');
   var nameInput = document.getElementById('expName');
   var amountInput = document.getElementById('expAmount');
   var dateInput = document.getElementById('expDate');
@@ -82,12 +86,15 @@
   var BRANCHES = [];
   var STAFF = [];
   var INVENTORY_ITEMS = [];
+  var PRODUCTS = [];
+  var VEHICLES = [];
 
   var CATEGORY_META = {
     emi: { label: 'EMI', icon: 'ti-credit-card', bg: '#EEF2FF', color: '#4338CA' },
     rent: { label: 'Rent', icon: 'ti-building-store', bg: '#EFF6FF', color: '#1D4ED8' },
     staff_salary: { label: 'Staff Salary', icon: 'ti-users', bg: '#ECFDF5', color: '#15803D', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-1.5A4.5 4.5 0 0 1 9.5 15h5a4.5 4.5 0 0 1 4.5 4.5V21"/></svg>' },
     inventory: { label: 'Inventory', icon: 'ti-package', bg: '#FFF7ED', color: '#C2410C' },
+    use_product: { label: 'Use Product', icon: 'ti-box', bg: '#FDF2F8', color: '#DB2777', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>' },
     utilities: { label: 'Utilities', icon: 'ti-bulb', bg: '#F5F3FF', color: '#6D28D9' },
     other: { label: 'Other', icon: 'ti-dots', bg: '#F1F5F9', color: '#475569' }
   };
@@ -353,9 +360,62 @@
 
       staffRow.style.display = cat === 'staff_salary' ? 'block' : 'none';
       inventoryRow.style.display = cat === 'inventory' ? 'block' : 'none';
+      if (productRow) productRow.style.display = cat === 'use_product' ? 'block' : 'none';
+      if (vehicleRow) vehicleRow.style.display = (cat === 'use_product' && productSelect && productSelect.value) ? 'block' : 'none';
 
       staffSelect.value = '';
       inventorySelect.value = '';
+      if (productSelect) productSelect.value = '';
+      if (vehicleSelect) vehicleSelect.value = '';
+    });
+  }
+
+  // use product dropdown select auto-filler
+  if (productSelect) {
+    productSelect.addEventListener('change', function () {
+      var prodId = productSelect.value;
+      if (!prodId) {
+        if (vehicleRow) vehicleRow.style.display = 'none';
+        if (vehicleSelect) vehicleSelect.value = '';
+        return;
+      }
+
+      // Show vehicle dropdown when product is selected
+      if (vehicleRow) vehicleRow.style.display = 'block';
+
+      var match = PRODUCTS.find(function (p) { return p.id == prodId; });
+      if (match) {
+        var baseTitle = 'Use Product: ' + match.name;
+        var vehText = '';
+        if (vehicleSelect && vehicleSelect.value) {
+          var selOpt = vehicleSelect.options[vehicleSelect.selectedIndex];
+          if (selOpt && selOpt.dataset.plate) {
+            vehText = ' (' + selOpt.dataset.plate + ')';
+          }
+        }
+        nameInput.value = baseTitle + vehText;
+        amountInput.value = match.price || match.unit_cost || '';
+      }
+    });
+  }
+
+  // vehicle dropdown select handler
+  if (vehicleSelect) {
+    vehicleSelect.addEventListener('change', function () {
+      var vehId = vehicleSelect.value;
+      var prodId = productSelect ? productSelect.value : null;
+      var match = PRODUCTS.find(function (p) { return p.id == prodId; });
+      if (match) {
+        var baseTitle = 'Use Product: ' + match.name;
+        var vehText = '';
+        if (vehId) {
+          var selOpt = vehicleSelect.options[vehicleSelect.selectedIndex];
+          if (selOpt && selOpt.dataset.plate) {
+            vehText = ' (' + selOpt.dataset.plate + ')';
+          }
+        }
+        nameInput.value = baseTitle + vehText;
+      }
     });
   }
 
@@ -424,7 +484,7 @@
       var itemId = inventorySelect.value;
       if (!itemId) return;
 
-      var match = INVENTORY.find(function (i) { return i.id == itemId; });
+      var match = INVENTORY_ITEMS.find(function (i) { return i.id == itemId; });
       if (match) {
         nameInput.value = 'Restock: ' + match.name;
         amountInput.value = match.unit_cost || '';
@@ -535,6 +595,8 @@
     form.reset();
     staffRow.style.display = 'none';
     inventoryRow.style.display = 'none';
+    if (productRow) productRow.style.display = 'none';
+    if (vehicleRow) vehicleRow.style.display = 'none';
   }
 
   function populateBranchOptions(selectedId) {
@@ -570,8 +632,25 @@
     var cat = categorySelect.value;
     staffRow.style.display = cat === 'staff_salary' ? 'block' : 'none';
     inventoryRow.style.display = cat === 'inventory' ? 'block' : 'none';
+    if (productRow) productRow.style.display = cat === 'use_product' ? 'block' : 'none';
+
     staffSelect.value = cat === 'staff_salary' && e.ref_id ? e.ref_id : '';
     inventorySelect.value = cat === 'inventory' && e.ref_id ? e.ref_id : '';
+    if (productSelect) productSelect.value = cat === 'use_product' && e.ref_id ? e.ref_id : '';
+
+    if (vehicleRow) {
+      vehicleRow.style.display = (cat === 'use_product' && productSelect && productSelect.value) ? 'block' : 'none';
+      if (vehicleSelect) {
+        vehicleSelect.value = (cat === 'use_product' && e.vehicle_id) ? e.vehicle_id : '';
+        if (!vehicleSelect.value && cat === 'use_product' && (e.name || e.notes)) {
+          var text = (e.name + ' ' + (e.notes || '')).toLowerCase();
+          var foundVeh = VEHICLES.find(function(v) {
+            return v.plate && text.indexOf(v.plate.toLowerCase()) !== -1;
+          });
+          if (foundVeh) vehicleSelect.value = foundVeh.id;
+        }
+      }
+    }
 
     nameInput.value = e.name;
     amountInput.value = e.amount;
@@ -603,6 +682,19 @@
         refId = staffSelect.value || null;
       } else if (category === 'inventory') {
         refId = inventorySelect.value || null;
+      } else if (category === 'use_product') {
+        refId = productSelect ? (productSelect.value || null) : null;
+      }
+
+      var vehicleId = (category === 'use_product' && vehicleSelect && vehicleSelect.value) ? vehicleSelect.value : null;
+      var vehiclePlate = '';
+      if (vehicleId && vehicleSelect) {
+        var selOpt = vehicleSelect.options[vehicleSelect.selectedIndex];
+        vehiclePlate = selOpt && selOpt.dataset.plate ? selOpt.dataset.plate : '';
+      }
+
+      if (vehiclePlate && notes.indexOf(vehiclePlate) === -1) {
+        notes = notes ? (notes + ' | Vehicle: ' + vehiclePlate) : ('Vehicle: ' + vehiclePlate);
       }
 
       var payload = {
@@ -612,7 +704,8 @@
         amount: amount,
         expense_date: expenseDate,
         notes: notes,
-        ref_id: refId
+        ref_id: refId,
+        vehicle_id: vehicleId
       };
 
       try {
@@ -680,6 +773,33 @@
           inventorySelect.innerHTML = '<option value="">-- Select Inventory Item --</option>' +
             INVENTORY_ITEMS.map(function (i) {
               return '<option value="' + i.id + '">' + escapeHtml(i.name) + ' (Unit Cost: ₹' + (i.unit_cost || 0) + ')</option>';
+            }).join('');
+        }
+      }
+
+      var prodRes = await fetch('/api/products?t=' + new Date().getTime());
+      if (prodRes.ok) {
+        PRODUCTS = await prodRes.json();
+        if (productSelect) {
+          productSelect.innerHTML = '<option value="">-- Select Product --</option>' +
+            PRODUCTS.map(function (p) {
+              var priceText = p.price ? ('₹' + p.price) : (p.unit_cost ? ('Cost: ₹' + p.unit_cost) : '');
+              var stockText = (p.stock !== undefined && p.stock !== null) ? ('Stock: ' + p.stock + (p.unit ? (' ' + p.unit) : '')) : '';
+              var extra = [priceText, stockText].filter(Boolean).join(' · ');
+              return '<option value="' + p.id + '">' + escapeHtml(p.name) + (extra ? ' (' + extra + ')' : '') + '</option>';
+            }).join('');
+        }
+      }
+
+      var vehRes = await fetch('/api/vehicles?t=' + new Date().getTime());
+      if (vehRes.ok) {
+        VEHICLES = await vehRes.json();
+        if (vehicleSelect) {
+          vehicleSelect.innerHTML = '<option value="">-- Select Vehicle --</option>' +
+            VEHICLES.map(function (v) {
+              var customerName = v.customer && v.customer.name ? v.customer.name : '';
+              var label = v.plate + (v.brand ? ' - ' + v.brand : '') + (customerName ? ' (' + customerName + ')' : '');
+              return '<option value="' + v.id + '" data-plate="' + escapeHtml(v.plate) + '">' + escapeHtml(label) + '</option>';
             }).join('');
         }
       }

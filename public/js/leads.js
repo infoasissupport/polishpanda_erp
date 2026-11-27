@@ -273,6 +273,9 @@
   function cleanPhoneForWhatsApp(phone) {
     if (!phone) return '';
     var digits = phone.replace(/[^0-9]/g, '');
+    if (digits.length === 11 && digits.startsWith('0')) {
+      digits = digits.slice(1);
+    }
     if (digits.length === 10) {
       return '91' + digits; // Default India prefix
     }
@@ -684,8 +687,9 @@
           );
         } else {
           waGreeting = encodeURIComponent(
-            'Hello ' + lead.name + ', following up regarding your ' + (lead.insurance_type || 'insurance') +
-            ' inquiry. How can we assist you with the policy details?'
+            'Thank you for your enquiry and for considering Polish Panda Auto Spa! 🐼\n\n' +
+            'We will review your requirements and share the detailed estimate with you shortly.\n\n' +
+            'Thank you for your patience. We look forward to serving you! 🚘✨'
           );
         }
       } else if (currentCategory === 'travel') {
@@ -695,9 +699,9 @@
         );
       } else {
         waGreeting = encodeURIComponent(
-          'Hello ' + lead.name + ', thank you for your interest in our ' +
-          (lead.service_interested || 'detailing services') +
-          ' at polishpanda! How can we assist you today?'
+          'Thank you for your enquiry and for considering Polish Panda Auto Spa! 🐼\n\n' +
+          'We will review your requirements and share the detailed estimate with you shortly.\n\n' +
+          'Thank you for your patience. We look forward to serving you! 🚘✨'
         );
       }
 

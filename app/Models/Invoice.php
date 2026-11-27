@@ -22,5 +22,6 @@ class Invoice extends Model
         'tax_inclusive' => 'boolean',
         'paid_at' => 'datetime',
         'due_at' => 'datetime',
+        'items' => 'array',
     ];
 }

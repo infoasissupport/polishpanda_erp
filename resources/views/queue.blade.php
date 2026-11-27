@@ -225,7 +225,7 @@
       <button class="icon-btn" onclick="window.SW.closeModal('completedJobModal')" aria-label="Close modal"><i class="ti ti-x"></i></button>
     </div>
     <div class="modal-body" id="completedJobModalBody"></div>
-    <div class="modal-footer">
+    <div class="modal-footer" id="completedJobModalFooter">
       <a class="btn" id="completedJobFullLink" href="/jobcards">Open full job card</a>
       <button type="button" class="btn btn-accent" onclick="window.SW.closeModal('completedJobModal')">Close</button>
     </div>

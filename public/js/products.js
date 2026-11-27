@@ -53,7 +53,7 @@
 
   function matchesSearch(p, term) {
     if (!term) return true;
-    var haystack = [p.name, p.description, p.supplier].filter(Boolean).join(' ').toLowerCase();
+    var haystack = [p.name, p.description, p.supplier, p.hsn_sac, p.hsn_code, p.unit].filter(Boolean).join(' ').toLowerCase();
     return haystack.indexOf(term.toLowerCase()) !== -1;
   }
 
@@ -70,8 +70,11 @@
     var isActive = prod.active !== false;
     var price = prod.unit_cost != null ? prod.unit_cost : 0;
     var stock = prod.stock != null ? prod.stock : 0;
+    var unit = prod.unit || 'pcs';
+    var hsn = prod.hsn_sac || prod.hsn_code || '';
 
-    var metaHtml = '<span><i class="ti ti-box"></i>Stock: ' + stock + '</span>' +
+    var metaHtml = '<span><i class="ti ti-box"></i>Stock: ' + stock + (unit ? ' ' + escapeHtml(unit) : '') + '</span>' +
+                   (hsn ? '<span><i class="ti ti-file-barcode"></i>HSN: ' + escapeHtml(hsn) + '</span>' : '') +
                    '<span class="service-status ' + (isActive ? 'active' : 'inactive') + '">' + (isActive ? 'Active' : 'Inactive') + '</span>';
 
     var actionsHtml = '<div class="service-actions">' +
@@ -120,6 +123,15 @@
   function resetForm() {
     form.reset();
     document.getElementById('prodStock').value = 10;
+    var unitSelect = document.getElementById('prodUnit');
+    if (unitSelect) unitSelect.value = 'pcs';
+    var customUnitEl = document.getElementById('prodCustomUnit');
+    if (customUnitEl) {
+      customUnitEl.value = '';
+      customUnitEl.style.display = 'none';
+    }
+    var hsnEl = document.getElementById('prodHsn');
+    if (hsnEl) hsnEl.value = '';
   }
 
   function openCreate() {
@@ -143,6 +155,30 @@
     document.getElementById('prodDesc').value = prod.description || '';
     document.getElementById('prodPrice').value = prod.unit_cost != null ? prod.unit_cost : 0;
     document.getElementById('prodStock').value = prod.stock != null ? prod.stock : 0;
+    var hsnEl = document.getElementById('prodHsn');
+    if (hsnEl) hsnEl.value = prod.hsn_sac || prod.hsn_code || '';
+
+    var unitSelect = document.getElementById('prodUnit');
+    var customUnitEl = document.getElementById('prodCustomUnit');
+    var unitVal = prod.unit || 'pcs';
+    if (unitSelect) {
+      var matchingOpt = Array.from(unitSelect.options).find(function (opt) {
+        return opt.value.toLowerCase() === unitVal.toLowerCase();
+      });
+      if (matchingOpt) {
+        unitSelect.value = matchingOpt.value;
+        if (customUnitEl) {
+          customUnitEl.value = '';
+          customUnitEl.style.display = 'none';
+        }
+      } else {
+        unitSelect.value = 'custom';
+        if (customUnitEl) {
+          customUnitEl.value = unitVal;
+          customUnitEl.style.display = 'block';
+        }
+      }
+    }
 
     window.SW.openModal('productModal');
   }
@@ -204,6 +240,13 @@
     var desc = document.getElementById('prodDesc').value.trim();
     var price = Number(document.getElementById('prodPrice').value);
     var stock = Number(document.getElementById('prodStock').value);
+    var hsn = (document.getElementById('prodHsn') ? document.getElementById('prodHsn').value : '').trim();
+    var unitSelect = document.getElementById('prodUnit');
+    var customUnitInput = document.getElementById('prodCustomUnit');
+    var unit = unitSelect ? unitSelect.value : 'pcs';
+    if (unit === 'custom') {
+      unit = (customUnitInput ? customUnitInput.value.trim() : '') || 'pcs';
+    }
 
     if (!name || isNaN(price)) {
       alert('Please fill out Product name and Price.');
@@ -215,10 +258,12 @@
       description: desc,
       unit_cost: price,
       stock: stock,
+      hsn_sac: hsn,
+      hsn_code: hsn,
+      unit: unit,
       icon: 'ti-box',
       supplier: 'Internal',
       reorder: 5,
-      unit: 'pcs',
       active: true
     };
 
@@ -253,6 +298,19 @@
     deleteBtn.addEventListener('click', function () {
       if (!editingId) return;
       removeProduct(editingId);
+    });
+  }
+
+  var prodUnitSelect = document.getElementById('prodUnit');
+  var prodCustomUnitInput = document.getElementById('prodCustomUnit');
+  if (prodUnitSelect && prodCustomUnitInput) {
+    prodUnitSelect.addEventListener('change', function () {
+      if (this.value === 'custom') {
+        prodCustomUnitInput.style.display = 'block';
+        prodCustomUnitInput.focus();
+      } else {
+        prodCustomUnitInput.style.display = 'none';
+      }
     });
   }
 

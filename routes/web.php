@@ -189,7 +189,9 @@ Kollam, Kerala - 691306",
         ]);
     }
     
-    $date = $invoice->date ?: $invoice->created_at->format('d M Y');
+    $date = ($invoice->status === 'paid' && $invoice->paid_at)
+        ? $invoice->paid_at->format('d M Y')
+        : ($invoice->date ?: ($invoice->created_at ? $invoice->created_at->format('d M Y') : now()->format('d M Y')));
 
     // Same maths as computeInvoiceTotals() in public/js/payments.js (see App\Support\InvoiceCalculator).
     // A service's products are a breakdown of its price, never an extra charge.
@@ -204,6 +206,7 @@ Kollam, Kerala - 691306",
     $item_price = $t['itemPrice'];
     $item_quantity = $t['itemQuantity'];
     $item_total = $t['itemTotal'];
+    $items = $t['items'] ?? [];
     $taxRate = $t['taxRate'];
     $cgstRate = $t['cgstRate'];
     $sgstRate = $t['sgstRate'];
@@ -226,7 +229,7 @@ Kollam, Kerala - 691306",
 
     return view('invoice-print', compact(
         'invoice', 'settings', 'servicePrice', 'subtotal', 'productsTotal',
-        'combinedSubtotal', 'item_price', 'item_quantity', 'item_total', 'taxRate', 'taxAmount',
+        'combinedSubtotal', 'item_price', 'item_quantity', 'item_total', 'items', 'taxRate', 'taxAmount',
         'cgstRate', 'sgstRate', 'cgstAmount', 'sgstAmount',
         'discount', 'total', 'date', 'serviceProducts', 'customerRecord', 'taxInclusive', 'taxableBase', 'breakdown'
     ));

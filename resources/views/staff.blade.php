@@ -229,7 +229,7 @@
 </div>
 
 <div class="modal-overlay" id="attendanceModal">
-  <div class="modal" style="max-width: 520px;">
+  <div class="modal" style="max-width: 660px;">
     <div class="modal-header">
       <div class="modal-title">Daily Attendance</div>
       <button class="icon-btn" onclick="window.SW.closeModal('attendanceModal')" aria-label="Close modal"><i class="ti ti-x"></i></button>

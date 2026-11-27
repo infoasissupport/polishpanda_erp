@@ -1272,9 +1272,16 @@ FILES:
         foreach ($staffList as $staff) {
             $staff->paid_this_month = $expenses[$staff->id] ?? 0;
             if (isset($attendance[$staff->id])) {
-                $staff->attendance = $attendance[$staff->id]->status;
-                $staff->check_in_time = $attendance[$staff->id]->check_in_time;
-                $staff->check_out_time = $attendance[$staff->id]->check_out_time;
+                $attRecord = $attendance[$staff->id];
+                $staff->attendance = $attRecord->status;
+                $checkIn = $attRecord->check_in_time;
+                if (empty($checkIn) && in_array($attRecord->status, ['present', 'late'])) {
+                    $checkIn = $attRecord->created_at ? $attRecord->created_at->format('H:i:s') : now()->format('H:i:s');
+                    $attRecord->check_in_time = $checkIn;
+                    $attRecord->save();
+                }
+                $staff->check_in_time = $checkIn;
+                $staff->check_out_time = $attRecord->check_out_time;
             } else {
                 $staff->attendance = 'absent';
                 $staff->check_in_time = null;
@@ -1359,9 +1366,13 @@ FILES:
         }
         // Record attendance for selected date
         $date = $request->input('date') ?: today()->toDateString();
+        $inTime = in_array($validated['attendance'], ['present', 'late']) ? now()->format('H:i:s') : null;
         StaffAttendance::updateOrCreate(
             ['user_id' => $userId, 'staff_id' => $staff->id, 'date' => $date],
-            ['status' => $validated['attendance']]
+            [
+                'status' => $validated['attendance'],
+                'check_in_time' => $inTime,
+            ]
         );
 
         $staff->attendance = $validated['attendance'];
@@ -1410,10 +1421,33 @@ FILES:
         $date = $request->input('date') ?: today()->toDateString();
         $status = $validated['attendance'];
 
+        $existingAtt = StaffAttendance::where('user_id', $userId)
+            ->where('staff_id', $staff->id)
+            ->whereDate('date', $date)
+            ->first();
+
+        $inTime = $request->input('check_in_time');
+        $outTime = $request->input('check_out_time');
+        if (in_array($status, ['present', 'late'])) {
+            if (empty($inTime)) {
+                $inTime = $existingAtt?->check_in_time ?: now()->format('H:i:s');
+            }
+            if (!$request->has('check_out_time')) {
+                $outTime = $existingAtt?->check_out_time;
+            }
+        } else {
+            $inTime = null;
+            $outTime = null;
+        }
+
         // Save to staff_attendance table
         StaffAttendance::updateOrCreate(
             ['user_id' => $userId, 'staff_id' => $staff->id, 'date' => $date],
-            ['status' => $status]
+            [
+                'status' => $status,
+                'check_in_time' => $inTime,
+                'check_out_time' => $outTime,
+            ]
         );
 
         $staffData = $validated;
@@ -1485,14 +1519,27 @@ FILES:
         $date = $validated['date'];
 
         foreach ($validated['attendance'] as $item) {
-            // Update staff_attendance log
+            $status = $item['status'];
             $inTime = (!empty($item['check_in_time'])) ? $item['check_in_time'] : null;
             $outTime = (!empty($item['check_out_time'])) ? $item['check_out_time'] : null;
+
+            if (in_array($status, ['present', 'late'])) {
+                if (empty($inTime)) {
+                    $existing = StaffAttendance::where('user_id', $userId)
+                        ->where('staff_id', $item['id'])
+                        ->whereDate('date', $date)
+                        ->first();
+                    $inTime = $existing?->check_in_time ?: now()->format('H:i:s');
+                }
+            } else {
+                $inTime = null;
+                $outTime = null;
+            }
 
             StaffAttendance::updateOrCreate(
                 ['user_id' => $userId, 'staff_id' => $item['id'], 'date' => $date],
                 [
-                    'status' => $item['status'],
+                    'status' => $status,
                     'check_in_time' => $inTime,
                     'check_out_time' => $outTime,
                 ]
@@ -1501,7 +1548,7 @@ FILES:
             // Also sync to staff fallback column
             Staff::where('user_id', $userId)
                 ->where('id', $item['id'])
-                ->update(['attendance' => $item['status']]);
+                ->update(['attendance' => $status]);
         }
 
         return response()->json(['message' => 'Attendance updated successfully']);
@@ -1587,18 +1634,35 @@ FILES:
         $validated = $request->validate([
             'category' => 'required|string|max:255',
             'name' => 'required|string|max:255',
-            'amount' => 'required|integer',
+            'amount' => 'required|numeric|min:0',
             'expense_date' => 'required|date',
             'notes' => 'nullable|string',
             'branch_id' => 'nullable|integer',
             'ref_id' => 'nullable|integer',
+            'vehicle_id' => 'nullable|integer',
         ]);
 
         $userId = $this->currentUserId();
         $validated['user_id'] = $userId;
+        $validated['amount'] = (int) round($validated['amount']);
 
-        $expense = Expense::create($validated);
-        $expense->update(['branch_id' => $this->defaultBranchId()]);
+        $expenseData = $validated;
+        if (!Schema::hasColumn('expenses', 'vehicle_id')) {
+            unset($expenseData['vehicle_id']);
+        }
+
+        $expense = Expense::create($expenseData);
+        if ($this->defaultBranchId() && empty($expense->branch_id)) {
+            $expense->update(['branch_id' => $this->defaultBranchId()]);
+        }
+
+        // When "Use Product" is recorded as an expense, decrement the product inventory stock
+        if ($validated['category'] === 'use_product' && !empty($validated['ref_id'])) {
+            $product = InventoryItem::where('user_id', $userId)->find($validated['ref_id']);
+            if ($product && $product->stock > 0) {
+                $product->decrement('stock', 1);
+            }
+        }
 
         return response()->json($expense, 201);
     }
@@ -1608,18 +1672,25 @@ FILES:
         $validated = $request->validate([
             'category' => 'nullable|string|max:255',
             'name' => 'nullable|string|max:255',
-            'amount' => 'nullable|integer',
+            'amount' => 'nullable|numeric|min:0',
             'expense_date' => 'nullable|date',
             'notes' => 'nullable|string',
             'branch_id' => 'nullable|integer',
             'ref_id' => 'nullable|integer',
+            'vehicle_id' => 'nullable|integer',
         ]);
 
         $userId = $this->currentUserId();
         $expense = $this->applyBranchFilter(Expense::where('user_id', $userId), request())->findOrFail($id);
 
+        if (isset($validated['amount'])) {
+            $validated['amount'] = (int) round($validated['amount']);
+        }
         if (!Schema::hasColumn('expenses', 'branch_id')) {
             unset($validated['branch_id']);
+        }
+        if (!Schema::hasColumn('expenses', 'vehicle_id')) {
+            unset($validated['vehicle_id']);
         }
 
         $expense->update($validated);
@@ -1630,6 +1701,14 @@ FILES:
     {
         $userId = $this->currentUserId();
         $expense = $this->applyBranchFilter(Expense::where('user_id', $userId), request())->findOrFail($id);
+
+        if ($expense->category === 'use_product' && !empty($expense->ref_id)) {
+            $product = InventoryItem::where('user_id', $userId)->find($expense->ref_id);
+            if ($product) {
+                $product->increment('stock', 1);
+            }
+        }
+
         $expense->delete();
 
         return response()->json(['status' => 'success']);
@@ -1657,6 +1736,9 @@ FILES:
             'supplier' => 'nullable|string|max:255',
             'unit_cost' => 'nullable|integer',
             'unit' => 'nullable|string|max:255',
+            'hsn_sac' => 'nullable|string|max:255',
+            'hsn_code' => 'nullable|string|max:255',
+            'hsn' => 'nullable|string|max:255',
             'low_stock_alert' => 'nullable|boolean',
             'active' => 'nullable|boolean',
         ]);
@@ -1669,6 +1751,9 @@ FILES:
         $itemData['reorder'] = $validated['reorder'] ?? 5;
         $itemData['supplier'] = $validated['supplier'] ?? 'General';
         $itemData['description'] = $validated['description'] ?? null;
+        $itemData['unit'] = $validated['unit'] ?? 'pcs';
+        $itemData['hsn_sac'] = $validated['hsn_sac'] ?? $validated['hsn_code'] ?? $validated['hsn'] ?? null;
+        unset($itemData['hsn_code'], $itemData['hsn']);
 
         if (Schema::hasColumn('inventory_items', 'unit')) {
             $itemData['unit'] = $validated['unit'] ?? 'pcs';
@@ -1719,12 +1804,19 @@ FILES:
             'supplier' => 'nullable|string|max:255',
             'unit_cost' => 'nullable|integer',
             'unit' => 'nullable|string|max:255',
+            'hsn_sac' => 'nullable|string|max:255',
+            'hsn_code' => 'nullable|string|max:255',
+            'hsn' => 'nullable|string|max:255',
             'low_stock_alert' => 'nullable|boolean',
             'active' => 'nullable|boolean',
         ]);
 
         $userId = $this->currentUserId();
         $item = $this->applyBranchFilter(InventoryItem::where('user_id', $userId), request())->findOrFail($id);
+        if (array_key_exists('hsn_sac', $validated) || array_key_exists('hsn_code', $validated) || array_key_exists('hsn', $validated)) {
+            $validated['hsn_sac'] = $validated['hsn_sac'] ?? $validated['hsn_code'] ?? $validated['hsn'] ?? null;
+            unset($validated['hsn_code'], $validated['hsn']);
+        }
         if (!Schema::hasColumn('inventory_items', 'unit')) {
             unset($validated['unit']);
         }
@@ -2148,7 +2240,12 @@ FILES:
                 $lastWash = $lastWashByPlate[strtolower($plate)] ?? null;
             }
             $inv->loyalty_count = $count;
-            $inv->last_wash = $lastWash ?: $inv->date;
+            $paymentDateStr = ($inv->status === 'paid' && $inv->paid_at)
+                ? \Carbon\Carbon::parse($inv->paid_at)->format('d M Y')
+                : ($inv->date ?: ($inv->created_at ? $inv->created_at->format('d M Y') : null));
+            $inv->last_wash = ($inv->status === 'paid' && $inv->paid_at)
+                ? $paymentDateStr
+                : ($lastWash ?: $paymentDateStr);
 
             $serviceProducts = [];
             $productsTotal = 0;
@@ -2192,6 +2289,17 @@ FILES:
             'payment_reference' => 'nullable|string|max:255',
             'due_at' => 'nullable|date',
             'paid_at' => 'nullable|date',
+            'item_name' => 'nullable|string|max:255',
+            'item_price' => 'nullable|integer',
+            'item_quantity' => 'nullable|integer|min:1',
+            'product_id' => 'nullable|integer|exists:inventory_items,id',
+            'items' => 'nullable|array',
+            'items.*.name' => 'nullable|string|max:255',
+            'items.*.price' => 'nullable|numeric|min:0',
+            'items.*.quantity' => 'nullable|numeric|min:0.01',
+            'items.*.product_id' => 'nullable|integer',
+            'items.*.hsn_sac' => 'nullable|string|max:255',
+            'items.*.unit' => 'nullable|string|max:255',
         ]);
 
         $userId = $this->currentUserId();
@@ -2225,6 +2333,19 @@ FILES:
         if (Schema::hasColumn('invoices', 'tax_inclusive')) {
             $invoice->tax_inclusive = true;
         }
+
+        $newItems = $this->parseItemsPayload($validated, $userId, $invoice->branch_id);
+        if (count($newItems) > 0) {
+            $invoice->items = $newItems;
+            $invoice->item_name = count($newItems) === 1 ? $newItems[0]['name'] : implode(', ', array_column($newItems, 'name'));
+            $invoice->item_quantity = count($newItems) === 1 ? (int) $newItems[0]['quantity'] : count($newItems);
+            $invoice->item_price = count($newItems) === 1 ? (int) $newItems[0]['price'] : (int) round(array_sum(array_map(fn($it) => $it['price'] * $it['quantity'], $newItems)));
+            if (Schema::hasColumn('invoices', 'product_id')) {
+                $invoice->product_id = count($newItems) === 1 ? ($newItems[0]['product_id'] ?? null) : null;
+            }
+            $this->syncInvoiceItemsStock([], $newItems, $userId, $invoice->branch_id);
+        }
+
         InvoiceCalculator::applyTo($invoice)->save();
 
         return response()->json($invoice, 201);
@@ -2247,6 +2368,14 @@ FILES:
             'item_name' => 'nullable|string|max:255',
             'item_price' => 'nullable|integer',
             'item_quantity' => 'nullable|integer|min:1',
+            'product_id' => 'nullable|integer|exists:inventory_items,id',
+            'items' => 'nullable|array',
+            'items.*.name' => 'nullable|string|max:255',
+            'items.*.price' => 'nullable|numeric|min:0',
+            'items.*.quantity' => 'nullable|numeric|min:0.01',
+            'items.*.product_id' => 'nullable|integer',
+            'items.*.hsn_sac' => 'nullable|string|max:255',
+            'items.*.unit' => 'nullable|string|max:255',
         ]);
 
         $userId = $this->currentUserId();
@@ -2255,16 +2384,18 @@ FILES:
         if (isset($validated['status'])) {
             $invoice->status = $validated['status'];
             $invoice->payment_status = $validated['status'];
-            if ($validated['status'] === 'paid' && !$invoice->paid_at) {
+            if ($validated['status'] === 'paid') {
                 $invoice->paid_at = $validated['paid_at'] ?? now();
+                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
             }
         }
 
         if (isset($validated['payment_status'])) {
             $invoice->payment_status = $validated['payment_status'];
             $invoice->status = $validated['payment_status'];
-            if ($validated['payment_status'] === 'paid' && !$invoice->paid_at) {
+            if ($validated['payment_status'] === 'paid') {
                 $invoice->paid_at = $validated['paid_at'] ?? now();
+                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
             }
         }
 
@@ -2298,19 +2429,45 @@ FILES:
 
         if (array_key_exists('paid_at', $validated)) {
             $invoice->paid_at = $validated['paid_at'];
+            if ($invoice->paid_at && $invoice->status === 'paid') {
+                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
+            }
         }
 
         if (isset($validated['date'])) {
             $invoice->date = $validated['date'];
         }
-        if (array_key_exists('item_name', $validated)) {
-            $invoice->item_name = $validated['item_name'];
-        }
-        if (array_key_exists('item_price', $validated)) {
-            $invoice->item_price = $validated['item_price'];
-        }
-        if (array_key_exists('item_quantity', $validated)) {
-            $invoice->item_quantity = max(1, (int) $validated['item_quantity']);
+
+        if (array_key_exists('items', $validated) || array_key_exists('item_name', $validated)) {
+            $oldItems = is_array($invoice->items) && count($invoice->items)
+                ? $invoice->items
+                : (!empty($invoice->item_name) ? [[
+                    'name' => $invoice->item_name,
+                    'price' => (float) ($invoice->item_price ?? 0),
+                    'quantity' => max(1, (int) ($invoice->item_quantity ?? 1)),
+                    'product_id' => $invoice->product_id ?? null,
+                ]] : []);
+
+            $newItems = $this->parseItemsPayload($validated, $userId, $invoice->branch_id);
+
+            $this->syncInvoiceItemsStock($oldItems, $newItems, $userId, $invoice->branch_id);
+
+            $invoice->items = $newItems;
+            if (count($newItems) > 0) {
+                $invoice->item_name = count($newItems) === 1 ? $newItems[0]['name'] : implode(', ', array_column($newItems, 'name'));
+                $invoice->item_quantity = count($newItems) === 1 ? (int) $newItems[0]['quantity'] : count($newItems);
+                $invoice->item_price = count($newItems) === 1 ? (int) $newItems[0]['price'] : (int) round(array_sum(array_map(fn($it) => $it['price'] * $it['quantity'], $newItems)));
+                if (Schema::hasColumn('invoices', 'product_id')) {
+                    $invoice->product_id = count($newItems) === 1 ? ($newItems[0]['product_id'] ?? null) : null;
+                }
+            } else {
+                $invoice->item_name = null;
+                $invoice->item_quantity = null;
+                $invoice->item_price = 0;
+                if (Schema::hasColumn('invoices', 'product_id')) {
+                    $invoice->product_id = null;
+                }
+            }
         }
 
         // Recalculate tax and total with the same maths as the preview and printed invoice
@@ -2325,9 +2482,136 @@ FILES:
     {
         $userId = $this->currentUserId();
         $invoice = $this->applyBranchFilter(Invoice::where('user_id', $userId), request())->findOrFail($id);
+
+        $items = is_array($invoice->items) && count($invoice->items)
+            ? $invoice->items
+            : (!empty(trim((string) $invoice->item_name)) ? [[
+                'name' => $invoice->item_name,
+                'quantity' => max(1, (int) ($invoice->item_quantity ?: 1)),
+                'product_id' => $invoice->product_id ?? null,
+            ]] : []);
+
+        foreach ($items as $it) {
+            $p = $this->findInventoryItem($it['product_id'] ?? null, $it['name'] ?? '', $userId, $invoice->branch_id);
+            if ($p) {
+                $p->stock += max(0.01, (float) ($it['quantity'] ?? 1));
+                $p->save();
+            }
+        }
+
         $invoice->delete();
 
         return response()->json(['status' => 'success']);
+    }
+
+    protected function parseItemsPayload(array $validated, $userId, ?int $branchId = null): array
+    {
+        $newItems = [];
+        if (array_key_exists('items', $validated) && is_array($validated['items'])) {
+            foreach ($validated['items'] as $it) {
+                $name = trim((string) ($it['name'] ?? ''));
+                if ($name === '') continue;
+                $qty = max(0.01, (float) ($it['quantity'] ?? 1));
+                $price = max(0, (float) ($it['price'] ?? 0));
+                $prodId = !empty($it['product_id']) ? (int) $it['product_id'] : null;
+                $product = $this->findInventoryItem($prodId, $name, $userId, $branchId);
+                $newItems[] = [
+                    'product_id' => $product?->id ?: $prodId,
+                    'name' => $product?->name ?: $name,
+                    'quantity' => $qty,
+                    'price' => $price,
+                    'hsn_sac' => $product?->hsn_sac ?: ($it['hsn_sac'] ?? ''),
+                    'unit' => $product?->unit ?: ($it['unit'] ?? 'pcs'),
+                ];
+            }
+        } elseif (!empty($validated['item_name'])) {
+            $name = trim((string) $validated['item_name']);
+            $qty = max(1, (int) ($validated['item_quantity'] ?? 1));
+            $price = max(0, (float) ($validated['item_price'] ?? 0));
+            $prodId = !empty($validated['product_id']) ? (int) $validated['product_id'] : null;
+            $product = $this->findInventoryItem($prodId, $name, $userId, $branchId);
+            $newItems[] = [
+                'product_id' => $product?->id ?: $prodId,
+                'name' => $product?->name ?: $name,
+                'quantity' => $qty,
+                'price' => $price,
+                'hsn_sac' => $product?->hsn_sac ?: '',
+                'unit' => $product?->unit ?: 'pcs',
+            ];
+        }
+        return $newItems;
+    }
+
+    protected function findInventoryItem(?int $productId, ?string $name, $userId, ?int $branchId = null): ?InventoryItem
+    {
+        if ($productId) {
+            $item = InventoryItem::where('user_id', $userId)->find($productId);
+            if ($item) {
+                return $item;
+            }
+        }
+
+        $trimmed = strtolower(trim((string) $name));
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if ($branchId) {
+            $item = InventoryItem::where('user_id', $userId)
+                ->where(function ($q) use ($branchId) {
+                    $q->where('branch_id', $branchId)->orWhereNull('branch_id');
+                })
+                ->whereRaw('LOWER(TRIM(name)) = ?', [$trimmed])
+                ->first();
+            if ($item) {
+                return $item;
+            }
+        }
+
+        return InventoryItem::where('user_id', $userId)
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$trimmed])
+            ->first();
+    }
+
+    protected function syncInvoiceItemsStock(array $oldItems, array $newItems, $userId, ?int $branchId = null): void
+    {
+        $oldProductMap = [];
+        foreach ($oldItems as $it) {
+            $name = trim((string) ($it['name'] ?? ''));
+            if ($name === '') continue;
+            $qty = max(0.01, (float) ($it['quantity'] ?? 1));
+            $p = $this->findInventoryItem($it['product_id'] ?? null, $name, $userId, $branchId);
+            if ($p) {
+                $oldProductMap[$p->id] = ($oldProductMap[$p->id] ?? 0) + $qty;
+            }
+        }
+
+        $newProductMap = [];
+        $productModels = [];
+        foreach ($newItems as $it) {
+            $name = trim((string) ($it['name'] ?? ''));
+            if ($name === '') continue;
+            $qty = max(0.01, (float) ($it['quantity'] ?? 1));
+            $p = $this->findInventoryItem($it['product_id'] ?? null, $name, $userId, $branchId);
+            if ($p) {
+                $newProductMap[$p->id] = ($newProductMap[$p->id] ?? 0) + $qty;
+                $productModels[$p->id] = $p;
+            }
+        }
+
+        $allIds = array_unique(array_merge(array_keys($oldProductMap), array_keys($newProductMap)));
+        foreach ($allIds as $pId) {
+            $oldQ = $oldProductMap[$pId] ?? 0;
+            $newQ = $newProductMap[$pId] ?? 0;
+            $diff = $newQ - $oldQ;
+            if ($diff != 0) {
+                $product = $productModels[$pId] ?? InventoryItem::find($pId);
+                if ($product) {
+                    $product->stock = max(0, $product->stock - $diff);
+                    $product->save();
+                }
+            }
+        }
     }
 
     private function createBillingInvoiceForJobCard(JobCard $card): ?Invoice
@@ -2376,6 +2660,7 @@ FILES:
         $amount = $subtotal;
         $branchId = $card->branch_id ?? ($booking->branch_id ?? $this->defaultBranchId());
 
+        $cardDate = $card->created_at ? $card->created_at->format('d M Y') : now()->format('d M Y');
         $invoiceData = [
             'id' => $this->nextInvoiceNumber(),
             'user_id' => $userId,
@@ -2385,8 +2670,11 @@ FILES:
             'amount' => $amount,
             'method' => 'pending',
             'status' => 'pending',
-            'date' => now()->format('d M Y'),
+            'date' => $cardDate,
         ];
+        if ($card->created_at) {
+            $invoiceData['created_at'] = $card->created_at;
+        }
 
         if (Schema::hasColumn('invoices', 'invoice_number')) {
             $invoiceData['invoice_number'] = $invoiceData['id'];

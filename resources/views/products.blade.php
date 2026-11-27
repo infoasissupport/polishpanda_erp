@@ -67,6 +67,30 @@
             <input type="number" id="prodStock" min="0" value="10" required placeholder="10">
           </div>
         </div>
+        <div class="modal-row">
+          <div class="field">
+            <label for="prodHsn">HSN Code</label>
+            <input type="text" id="prodHsn" placeholder="e.g. 34053000">
+          </div>
+          <div class="field">
+            <label for="prodUnit">Unit</label>
+            <select id="prodUnit">
+              <option value="pcs">pcs (Pieces)</option>
+              <option value="bottle">bottle (Bottle)</option>
+              <option value="can">can (Can)</option>
+              <option value="ml">ml (Milliliters)</option>
+              <option value="L">L (Liters)</option>
+              <option value="kg">kg (Kilograms)</option>
+              <option value="g">g (Grams)</option>
+              <option value="pack">pack (Pack)</option>
+              <option value="box">box (Box)</option>
+              <option value="set">set (Set)</option>
+              <option value="drum">drum (Drum)</option>
+              <option value="custom">+ Other (Custom Unit)</option>
+            </select>
+            <input type="text" id="prodCustomUnit" placeholder="Type custom unit..." style="display:none;margin-top:6px;">
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn danger" id="deleteProductBtn" style="display:none;margin-right:auto;"><i class="ti ti-x"></i>Delete product</button>

@@ -151,6 +151,7 @@
     var row = document.createElement('div');
     row.className = 'svc-prod-row';
     if (data.product_id) row.setAttribute('data-product-id', data.product_id);
+    if (data.unit) row.setAttribute('data-unit', data.unit);
 
     var rawQty = data.quantity != null ? data.quantity : 1;
 
@@ -195,7 +196,8 @@
           name: p.name,
           quantity: 1,
           price: p.unit_cost != null ? p.unit_cost : 0,
-          hsn_sac: p.hsn_sac || '',
+          hsn_sac: p.hsn_sac || p.hsn_code || '',
+          unit: p.unit || 'pcs',
           product_id: p.id
         });
       }
@@ -495,6 +497,7 @@
           quantity: isPct ? rawQty : (Math.max(0.01, Number(rawQty) || 1)),
           price: Number(row.querySelector('.svc-prod-price').value) || 0,
           hsn_sac: (row.querySelector('.svc-prod-hsn').value || '').trim(),
+          unit: row.getAttribute('data-unit') || 'pcs',
           product_id: row.getAttribute('data-product-id') ? Number(row.getAttribute('data-product-id')) : null
         });
       }
