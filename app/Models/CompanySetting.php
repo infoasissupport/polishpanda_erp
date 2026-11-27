@@ -26,6 +26,7 @@ class CompanySetting extends Model
         'company_logo',
         'upi_qr_code',
         'signature',
+        'seal',
         'instagram_url',
         'google_business_url'
     ];

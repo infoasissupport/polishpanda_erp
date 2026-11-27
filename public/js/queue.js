@@ -69,11 +69,13 @@
       var vehicleLine = [b.vehicle_plate, b.vehicle].filter(Boolean).join(' · ');
 
       var timeString = '';
+      var dateString = '';
       var waitString = '--';
       if (b.created_at) {
         var dateObj = new Date(b.created_at);
         if (!isNaN(dateObj.getTime())) {
           timeString = dateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+          dateString = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
           waitString = formatWaitTime(Date.now() - dateObj.getTime());
         }
       }
@@ -93,7 +95,9 @@
         '<td class="wl-td-vehicle"><div class="wl-cell"><div class="wl-icon">' + WL_CAR_ICON_SVG + '</div><div class="wl-vehicle">' + (vehicleLine ? escapeHtml(vehicleLine) : '—') + '</div></div></td>' +
         '<td class="wl-td-customer"><div class="wl-customer">' + escapeHtml(b.customer) + vipBadge + '</div></td>' +
         '<td class="wl-td-service"><div class="wl-service">' + escapeHtml(b.service) + '</div></td>' +
-        '<td class="wl-td-arrival"><span class="wl-arrival">' + (timeString ? WL_CLOCK_ICON_SVG + timeString : '--') + '</span></td>' +
+        '<td class="wl-td-arrival">' +
+          (dateString ? '<span class="wl-arrival wl-arrival-date">' + WL_CAL_ICON_SVG + dateString + '</span>' : '') +
+          '<span class="wl-arrival">' + (timeString ? WL_CLOCK_ICON_SVG + timeString : '--') + '</span></td>' +
         '<td class="wl-td-wait"><span class="wl-wait">' + waitString + '</span></td>' +
         '<td class="wl-td-actions"><div class="wl-actions">' +
           '<button type="button" class="btn btn-accent start-wash-btn"><i class="ti ti-droplet"></i>Start Work</button>' +
@@ -166,7 +170,8 @@
       '<div class="q-empty-sub">' + escapeHtml(sub) + '</div>' +
     '</div></td></tr>';
   }
-  var WL_CLOCK_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  var WL_CAL_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/></svg>';
+  var WL_CLOCK_ICON_SVG ='<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 
   // Waitlist "Wait time": how long since the booking arrived (refreshes with the 5s queue poll)
   function formatWaitTime(ms) {
@@ -232,11 +237,11 @@
 
     if (filtered.length === 0) {
       if (completedSearchTerm) {
-        completedRows.innerHTML = queueEmptyRowHtml(Q_EMPTY_SEARCH_SVG, 'No completed washes match your search', 'Try a different vehicle, customer or service.');
+        completedRows.innerHTML = queueEmptyRowHtml(Q_EMPTY_SEARCH_SVG, 'No completed works match your search', 'Try a different vehicle, customer or service.');
       } else {
-        completedRows.innerHTML = queueEmptyRowHtml(Q_EMPTY_CHECK_SVG, completedTabMode === 'total' ? 'No completed washes yet' : 'No washes completed yet today', 'Finished washes will appear here.');
+        completedRows.innerHTML = queueEmptyRowHtml(Q_EMPTY_CHECK_SVG, completedTabMode === 'total' ? 'No completed works yet' : 'No works completed yet today', 'Finished works will appear here.');
       }
-      if (completedPageInfo) completedPageInfo.textContent = 'No completed washes';
+      if (completedPageInfo) completedPageInfo.textContent = 'No completed works';
       if (window.SW && SW.renderPager) SW.renderPager(completedPrevBtn, completedNextBtn, 1, 1);
       return;
     }
@@ -269,7 +274,7 @@
     if (completedPageInfo) {
       var rangeStart = start + 1;
       var rangeEnd = Math.min(start + COMPLETED_PAGE_SIZE, filtered.length);
-      completedPageInfo.textContent = 'Showing ' + rangeStart + '–' + rangeEnd + ' of ' + filtered.length + ' completed washes';
+      completedPageInfo.textContent = 'Showing ' + rangeStart + '–' + rangeEnd + ' of ' + filtered.length + ' completed works';
     }
     if (completedPrevBtn) completedPrevBtn.disabled = completedCurrentPage <= 1;
     if (completedNextBtn) completedNextBtn.disabled = completedCurrentPage >= totalPages;
@@ -278,11 +283,11 @@
 
   function updateCompletedBadge() {
     if (completedTitleText) {
-      completedTitleText.textContent = completedTabMode === 'total' ? 'Total Completed Wash' : 'Today Completed Wash';
+      completedTitleText.textContent = completedTabMode === 'total' ? 'Total Completed Works' : 'Today Completed Works';
     }
     if (!completedCountBadge) return;
     var count = (completedTabMode === 'total' ? lastCompletedAll : lastCompletedToday).length;
-    completedCountBadge.textContent = count + (count === 1 ? ' wash' : ' washes');
+    completedCountBadge.textContent = count + (count === 1 ? ' work' : ' works');
   }
 
   function renderCompleted(jobcards) {
@@ -568,7 +573,7 @@
     set('qStatWaiting', lastWaitingBookings.length);
     set('waitlistCountBadge', lastWaitingBookings.length);
     set('qStatActive', starting + washing);
-    set('qStatActiveSub', washing + ' washing · ' + starting + ' starting');
+    set('qStatActiveSub', washing + ' works · ' + starting + ' starting');
     set('qStatFree', free + ' / ' + names.length);
     set('qStatCompleted', lastCompletedToday.length);
   }
@@ -803,9 +808,10 @@
         return;
       }
 
+      // Bay card "View Job Card": go to the Job Cards page, which opens this card (/jobcards?id=…)
       var viewJobBtn = e.target.closest('[data-view-job]');
       if (viewJobBtn) {
-        openCompletedJobModal(viewJobBtn.getAttribute('data-view-job'));
+        window.location.href = '/jobcards?id=' + encodeURIComponent(viewJobBtn.getAttribute('data-view-job'));
         return;
       }
 

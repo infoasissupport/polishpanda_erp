@@ -392,7 +392,7 @@
   padding: 3px 8px;
   border-radius: 6px;
   white-space: nowrap;
-  max-width: 170px;
+  max-width: auto;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1554,7 +1554,7 @@
 #leadsView .sw-pager .page-num.active{background:var(--accent);color:#fff;box-shadow:0 4px 10px -4px rgba(227,18,27,.7);}
 .table-wrap {
   & .table-scroll {
-    height: 100% !important;
+    height: calc(100dvh - 200px) !important;
   }
 }
 /* ---- Table polish: nothing wraps awkwardly; the table scrolls sideways instead of squeezing cells ---- */
@@ -1579,7 +1579,7 @@
    Cell labels come from the column headings (data-label, set in leads.js),
    so the Detailing, Insurance and Travel tabs all label correctly.
    ========================================================================== */
-@media (max-width:1199px){
+@media all{ /* lead cards at every screen size (was tablets/phones only) */
   #leadsView .table-wrap{border:none;border-radius:0;background:transparent;box-shadow:none;overflow:visible;}
   #leadsView .table-wrap .table-scroll{height:auto !important;overflow:visible;border:none;}
   #leadsView .leads-table{min-width:0;display:block;width:100%;}
@@ -1591,8 +1591,8 @@
     background:#fff;border:1px solid #e6e8ec;border-radius:14px;padding:14px;
     box-shadow:0 10px 24px -18px rgba(16,24,40,.35);
   }
-  #leadsTableBody td,
-  #leadsTableBody tr:hover td{display:block;min-width:0;padding:0;border:none;background:transparent;white-space:normal;}
+  /* no tr:hover variant here: it outranked the top/bottom section spacing below, so cards jumped on hover */
+  #leadsTableBody td{display:block;min-width:0;padding:0;border:none;background:transparent;white-space:normal;}
   #leadsTableBody tr:hover td:first-child{box-shadow:none;}
   #leadsTableBody td::before{
     content:attr(data-label);display:block;margin-bottom:5px;
@@ -1703,4 +1703,331 @@
 @media (max-width:900px){
   #leadsView .leads-filter-group{flex:1 1 100%;}
   #leadsView .leads-select{flex:1;min-width:0;}
+}
+
+
+/* ==========================================================================
+   All Follow-Ups popup (opened from the Follow-ups KPI card)
+   ========================================================================== */
+.leads-kpi-clickable{cursor:pointer;}
+.leads-kpi-clickable:focus-visible{outline:2px solid #7c3aed;outline-offset:2px;}
+
+#followUpsListModal .fux-modal{width:min(1120px,96vw);max-width:1120px;border-radius:18px;overflow:hidden;
+  box-shadow:0 30px 70px -20px rgba(16,24,40,.45);}
+#followUpsListModal .fux-header{align-items:flex-start;gap:12px;}
+#followUpsListModal .fux-head-text{display:flex;flex-direction:column;gap:3px;min-width:0;}
+#followUpsListModal .fux-header .modal-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#followUpsListModal .fux-count{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;
+  background:rgba(124,58,237,.18);color:#c4b5fd;font-size:12.5px;font-weight:700;letter-spacing:.01em;}
+#followUpsListModal .fux-subtitle{font-size:13px;color:#a1a1aa;font-weight:400;}
+#followUpsListModal .fux-body{padding:18px 20px 20px;max-height:calc(100dvh - 160px);overflow-y:auto;}
+
+/* summary cards */
+#followUpsListModal .fux-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px;}
+#followUpsListModal .fux-sum{--c:#7c3aed;--t:#f5f0ff;display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:12px;
+  background:linear-gradient(135deg,#fff 0%,var(--t) 100%);border:1px solid color-mix(in srgb,var(--c) 18%,#fff);}
+#followUpsListModal .fux-sum--today{--c:#d97706;--t:#fff7e8;}
+#followUpsListModal .fux-sum--upcoming{--c:#2563eb;--t:#eef4ff;}
+#followUpsListModal .fux-sum--overdue{--c:#dc2626;--t:#fff0f0;}
+#followUpsListModal .fux-sum-label{font-size:12px;font-weight:600;color:#667085;}
+#followUpsListModal .fux-sum-value{font-size:24px;font-weight:800;color:var(--c);line-height:1.1;font-variant-numeric:tabular-nums;}
+
+/* tabs + search */
+#followUpsListModal .fux-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+#followUpsListModal .fux-tabs{display:flex;gap:4px;padding:4px;background:#f4f5f7;border-radius:12px;overflow-x:auto;max-width:100%;}
+#followUpsListModal .fux-tab{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border:0;border-radius:9px;
+  background:transparent;color:#475467;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background-color .15s,color .15s;}
+#followUpsListModal .fux-tab:hover{color:#101828;}
+#followUpsListModal .fux-tab.active{background:#fff;color:#101828;box-shadow:0 1px 3px rgba(16,24,40,.12);}
+#followUpsListModal .fux-tab-n{min-width:20px;padding:1px 6px;border-radius:999px;background:#e4e7ec;color:#344054;font-size:11.5px;text-align:center;}
+#followUpsListModal .fux-tab.active .fux-tab-n{background:#7c3aed;color:#fff;}
+#followUpsListModal .fux-tab[data-tab="today"].active .fux-tab-n{background:#d97706;}
+#followUpsListModal .fux-tab[data-tab="upcoming"].active .fux-tab-n{background:#2563eb;}
+#followUpsListModal .fux-tab[data-tab="overdue"].active .fux-tab-n{background:#dc2626;}
+#followUpsListModal .fux-tab[data-tab="completed"].active .fux-tab-n{background:#16a34a;}
+#followUpsListModal .fux-search{position:relative;flex:0 1 280px;min-width:200px;}
+#followUpsListModal .fux-search i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#98a2b3;font-size:16px;pointer-events:none;}
+#followUpsListModal .fux-search input{width:100%;height:38px;padding:0 12px 0 34px;border:1px solid #d0d5dd;border-radius:10px;font-size:13.5px;background:#fff;}
+#followUpsListModal .fux-search input:focus{outline:0;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.14);}
+
+/* table */
+#followUpsListModal .fux-table-wrap{border:1px solid #eaecf0;border-radius:12px;overflow:hidden;}
+#followUpsListModal .fux-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px;}
+#followUpsListModal .fux-table thead th{position:sticky;top:0;z-index:1;background:#f8f9fb;color:#475467;font-size:12px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:11px 14px;border-bottom:1px solid #eaecf0;white-space:nowrap;}
+#followUpsListModal .fux-table tbody td{padding:12px 14px;border-bottom:1px solid #f0f1f3;vertical-align:top;color:#344054;}
+#followUpsListModal .fux-table tbody tr:last-child td{border-bottom:0;}
+#followUpsListModal .fux-table tbody tr:hover td{background:#fafafb;}
+#followUpsListModal .fux-row td:first-child{box-shadow:inset 3px 0 0 var(--row-c,transparent);}
+#followUpsListModal .fux-row--overdue{--row-c:#dc2626;}
+#followUpsListModal .fux-row--overdue td{background:#fffafa;}
+#followUpsListModal .fux-row--today{--row-c:#f59e0b;}
+#followUpsListModal .fux-row--today td{background:#fffcf5;}
+#followUpsListModal .fux-row--upcoming{--row-c:#3b82f6;}
+#followUpsListModal .fux-row--completed{--row-c:#22c55e;}
+#followUpsListModal .fux-name{font-weight:700;color:#101828;text-transform:capitalize;}
+#followUpsListModal .fux-muted{font-size:12px;color:#98a2b3;margin-top:2px;}
+#followUpsListModal .fux-rel--overdue{color:#dc2626;font-weight:600;}
+#followUpsListModal .fux-rel--today{color:#d97706;font-weight:600;}
+#followUpsListModal .fux-rel--upcoming{color:#2563eb;}
+#followUpsListModal .fux-date{font-weight:600;color:#101828;white-space:nowrap;}
+#followUpsListModal .fux-phone{display:inline-flex;align-items:center;gap:5px;color:#2563eb;font-weight:600;text-decoration:none;white-space:nowrap;}
+#followUpsListModal .fux-phone:hover{text-decoration:underline;}
+#followUpsListModal .fux-notes-cell{max-width:280px;}
+#followUpsListModal .fux-purpose{font-weight:600;color:#344054;}
+#followUpsListModal .fux-note{margin-top:2px;font-size:12.5px;color:#667085;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+#followUpsListModal .fux-pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;}
+#followUpsListModal .fux-pill--overdue{background:#fee2e2;color:#b91c1c;}
+#followUpsListModal .fux-pill--today{background:#fef3c7;color:#b45309;}
+#followUpsListModal .fux-pill--upcoming{background:#dbeafe;color:#1d4ed8;}
+#followUpsListModal .fux-pill--completed{background:#dcfce7;color:#15803d;}
+#followUpsListModal .fux-th-actions{text-align:right !important;}
+#followUpsListModal .fux-actions{text-align:right;white-space:nowrap;}
+#followUpsListModal .fux-act{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;margin-left:4px;
+  border:1px solid #e4e7ec;border-radius:8px;background:#fff;color:#475467;cursor:pointer;font-size:16px;transition:all .15s;}
+#followUpsListModal .fux-act:hover{border-color:#7c3aed;color:#7c3aed;}
+#followUpsListModal .fux-act--done:hover{border-color:#16a34a;color:#fff;background:#16a34a;}
+#followUpsListModal .fux-act:disabled{opacity:.5;cursor:wait;}
+#followUpsListModal .fux-empty{flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:40px 16px;color:#667085;font-size:14px;text-align:center;}
+#followUpsListModal .fux-empty i{font-size:30px;color:#c4b5fd;}
+
+/* tablet */
+@media (max-width:900px){
+  #followUpsListModal .fux-summary{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #followUpsListModal .fux-search{flex:1 1 100%;}
+}
+/* phone: each follow-up becomes a card */
+@media (max-width:680px){
+  #followUpsListModal .fux-body{padding:14px;}
+  #followUpsListModal .fux-table-wrap{border:0;border-radius:0;overflow:visible;}
+  #followUpsListModal .fux-table thead{display:none;}
+  #followUpsListModal .fux-table,#followUpsListModal .fux-table tbody{display:block;}
+  #followUpsListModal .fux-table tbody tr{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:10px;padding:12px 14px;
+    border:1px solid #eaecf0;border-radius:12px;background:#fff;box-shadow:inset 4px 0 0 var(--row-c,transparent);}
+  #followUpsListModal .fux-table tbody td{display:block;padding:0;border:0;background:transparent !important;box-shadow:none !important;max-width:none;}
+  #followUpsListModal .fux-table tbody td::before{content:attr(data-label);display:block;font-size:10.5px;font-weight:700;color:#98a2b3;
+    text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;}
+  #followUpsListModal .fux-table tbody td[data-label="Customer"]::before,
+  #followUpsListModal .fux-table tbody td[data-label="Actions"]::before{display:none;}
+  #followUpsListModal .fux-notes-cell,#followUpsListModal .fux-actions{grid-column:1 / -1;}
+  #followUpsListModal .fux-actions{text-align:left;border-top:1px dashed #eaecf0 !important;padding-top:10px !important;}
+  #followUpsListModal .fux-act{margin:0 6px 0 0;}
+}
+
+/* Follow-Ups popup: summary, tabs and search stay put; only the table scrolls, header pinned */
+#followUpsListModal .fux-body{display:flex;flex-direction:column;overflow:hidden;max-height:calc(100dvh - 12vh - 72px);}
+#followUpsListModal .fux-summary,#followUpsListModal .fux-toolbar{flex-shrink:0;}
+#followUpsListModal .fux-table-wrap{flex:0 1 auto;min-height:160px;overflow-y:auto;overflow-x:auto;overscroll-behavior:contain;}
+#followUpsListModal .fux-table thead th{position:sticky;top:0;z-index:2;background:#f8f9fb;box-shadow:inset 0 -1px 0 #eaecf0;}
+@media (max-width:680px){
+  #followUpsListModal .fux-body{max-height:calc(100dvh - 24px - 72px);}
+  #followUpsListModal .fux-table-wrap{overflow-y:auto;min-height:120px;}
+}
+
+/* Lead cards: never show the serial-number (#) cell — hovered or not, at any screen size */
+#leadsTableBody td.col-sl,
+#leadsTableBody tr:hover td.col-sl{display:none !important;}
+
+
+/* ==========================================================================
+   Lead cards: no hover effects — everything looks the same with or without the mouse over it
+   ========================================================================== */
+#leadsTableBody tr:hover td{background:transparent;}
+#leadsTableBody tr:hover td:first-child{box-shadow:none;}
+#leadsTableBody .lead-phone:hover,
+#leadsTableBody .lead-email:hover{color:#475569 !important;}
+#leadsTableBody .lead-followup-count:hover{background:#eaf0ff;color:#3b4a6b;}
+#leadsTableBody .lead-actions .btn-whatsapp-action:hover{background:#dcfce7;color:#16a34a;}
+#leadsTableBody .lead-actions .btn-followup-action:hover{background:#fce7f3;color:#be185d;}
+#leadsTableBody .lead-actions .btn-convert-action:hover{background:#e8f0ff;color:#2563eb;}
+#leadsTableBody .lead-actions .row-edit-btn:hover{background:#f1f2f4;color:#334155;}
+
+/* Lead cards: long pills (service, plate, source, status) wrap inside the card instead of running past its edge */
+#leadsTableBody .lead-service-pill,
+#leadsTableBody .lead-plate-badge,
+#leadsTableBody .lead-source-badge,
+#leadsTableBody .lead-status-pill{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.35;text-align:left;}
+#leadsTableBody .lead-service-pill{display:inline-flex;align-items:center;height:auto;padding-top:6px;padding-bottom:6px;}
+#leadsTableBody .lead-service-pill{border-radius:14px;}
+
+
+/* ==========================================================================
+   Estimation button on lead cards + Estimation / Quote popup
+   ========================================================================== */
+.lead-actions .btn-estimate-action{width:38px;height:38px;border-radius:10px;border:0;background:#fef3c7;color:#b45309;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;flex-shrink:0;}
+.lead-actions .btn-estimate-action .ti{color:inherit;}
+
+#estimateModal .est-modal{width:min(880px,96vw);max-width:880px;border-radius:18px;overflow:hidden;}
+#estimateModal .est-head-text{display:flex;flex-direction:column;gap:3px;min-width:0;}
+#estimateModal .modal-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#estimateModal .est-number{font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:rgba(245,158,11,.2);color:#fcd34d;}
+#estimateModal .est-number:empty{display:none;}
+#estimateModal .est-subtitle{font-size:13px;color:#a1a1aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#estimateModal .est-body{padding:10px 10px;max-height:calc(100dvh - 12vh - 140px);overflow-y:auto;}
+
+#estimateModal .est-add-row{display:grid;grid-template-columns:1fr 1fr auto;
+  gap:10px;margin-bottom:0px;}
+#estimateModal .est-add-row select{height:40px;border:1px solid #d0d5dd;border-radius:10px;padding:0 10px;background:#fff;font-size:13.5px;min-width:0;}
+#estimateModal .est-add-row .btn{height:40px;white-space:nowrap;}
+
+#estimateModal .est-items-wrap{border:1px solid #eaecf0;border-radius:12px;overflow:hidden;}
+#estimateModal .est-items{width:100%;border-collapse:collapse;font-size:13.5px;}
+#estimateModal .est-items th{background:#f8f9fb;color:#475467;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:10px 12px;border-bottom:1px solid #eaecf0;}
+#estimateModal .est-items td{padding:8px 12px;border-bottom:1px solid #f0f1f3;vertical-align:middle;}
+#estimateModal .est-items tr:last-child td{border-bottom:0;}
+#estimateModal .est-th-qty{width:80px;}
+#estimateModal .est-th-price{width:120px;}
+#estimateModal .est-th-amt{width:110px;text-align:right !important;}
+#estimateModal .est-th-del{width:44px;}
+#estimateModal .est-item-cell{display:flex;align-items:center;gap:8px;min-width:0;}
+#estimateModal .est-items input{width:100%;height:36px;border:1px solid #d0d5dd;border-radius:8px;padding:0 10px;font-size:13.5px;background:#fff;min-width:0;}
+#estimateModal .est-items input:focus{outline:0;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15);}
+#estimateModal .est-amt{text-align:right;font-weight:700;color:#101828;white-space:nowrap;}
+#estimateModal .est-tag{flex-shrink:0;font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:.03em;}
+#estimateModal .est-tag--service{background:#fff1f1;color:#e3121b;}
+#estimateModal .est-tag--product{background:#eef4ff;color:#2563eb;}
+#estimateModal .est-tag--custom{background:#f2f4f7;color:#475467;}
+#estimateModal .est-del{width:32px;height:32px;border:1px solid #fecaca;border-radius:8px;background:#fff5f5;color:#dc2626;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:15px;}
+#estimateModal .est-empty{padding:26px 16px;text-align:center;color:#667085;font-size:13.5px;}
+
+#estimateModal .est-bottom{display:grid;grid-template-columns:1fr 300px;gap:18px;margin-top:16px;align-items:start;}
+#estimateModal .est-meta .field{margin-bottom:10px;}
+#estimateModal .est-totals{background:#f8f9fb;border:1px solid #eaecf0;border-radius:12px;padding:12px 14px;}
+#estimateModal .est-total-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;font-size:14px;color:#344054;}
+#estimateModal .est-discount-row label{margin:0;font-size:14px;color:#344054;font-weight:400;}
+#estimateModal .est-discount-row input{width:110px;height:34px;border:1px solid #d0d5dd;border-radius:8px;padding:0 10px;text-align:right;background:#fff;}
+#estimateModal .est-grand{border-top:1px dashed #d0d5dd;margin-top:4px;padding-top:10px;font-size:18px;font-weight:800;color:#101828;}
+#estimateModal .est-saved{margin-top:6px;font-size:12px;color:#98a2b3;text-align:right;}
+
+#estimateModal .est-footer{flex-wrap:wrap;gap:8px;}
+#estimateModal .est-btn-wa{background:#16a34a;color:#fff;border-color:#16a34a;}
+#estimateModal .est-btn-print{background:#fff;color:#101828;border:1px solid #d0d5dd;}
+
+@media (max-width:760px){
+  #estimateModal .est-add-row{grid-template-columns:1fr 1fr;}
+  #estimateModal .est-add-row .btn{grid-column:1 / -1;}
+  #estimateModal .est-bottom{grid-template-columns:1fr;}
+  /* each item becomes a small card: name on top, qty / price / amount below */
+  #estimateModal .est-items thead{display:none;}
+  #estimateModal .est-items,#estimateModal .est-items tbody{display:block;}
+  #estimateModal .est-items tr{display:grid;grid-template-columns:70px 1fr auto 36px;gap:8px;align-items:end;padding:10px;border-bottom:1px solid #f0f1f3;}
+  #estimateModal .est-items td{display:block;padding:0;border:0;}
+  #estimateModal .est-items td:first-child{grid-column:1 / -1;}
+  #estimateModal .est-items td[data-label]:not(:first-child)::before{content:attr(data-label);display:block;font-size:10.5px;font-weight:700;color:#98a2b3;text-transform:uppercase;margin-bottom:3px;}
+  #estimateModal .est-footer .btn{flex:1 1 calc(50% - 8px);justify-content:center;}
+}
+
+
+/* ---- Estimation popup v2: Edit / Preview tabs, GST item columns ---- */
+#estimateModal .est-modal{width:min(1040px,96vw);max-width:1040px;}
+#estimateModal .est-tabs{display:flex;gap:4px;padding:10px 10px 0;border-bottom:1px solid #eaecf0;background:#fff;}
+#estimateModal .est-tab{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 16px;border:0;border-bottom:2px solid transparent;
+  background:transparent;color:#667085;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:-1px;}
+#estimateModal .est-tab.active{color:#b45309;border-bottom-color:#f59e0b;}
+#estimateModal .est-preview{padding:14px 20px;background:#f2f4f7;}
+#estimateModal .est-preview iframe{display:block;width:100%;height:calc(100dvh - 12vh - 210px);min-height:420px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;}
+#estimateModal .est-th-hsn{width:110px;}
+#estimateModal .est-th-unit{width:80px;}
+#estimateModal .est-th-gst{width:80px;}
+#estimateModal .est-th-price{width:130px;}
+#estimateModal .est-items td:first-child{min-width:220px;}
+#estimateModal .est-items-wrap{overflow-x:auto;}
+@media (max-width:760px){
+  #estimateModal .est-tabs{padding:8px 12px 0;}
+  #estimateModal .est-preview{padding:10px;}
+  #estimateModal .est-items td:first-child{min-width:0;}
+  #estimateModal .est-items tr{grid-template-columns:1fr 1fr 1fr;}
+  #estimateModal .est-items td.est-del-cell{align-self:end;}
+}
+
+
+/* ---- Estimation item table: fixed column widths, one-line headers, numbers always visible ---- */
+@media (min-width:761px){
+  #estimateModal .est-items{table-layout:fixed;min-width:960px;}
+  #estimateModal .est-items th{white-space:nowrap;padding:10px 8px;}
+  #estimateModal .est-items td{padding:8px;}
+  #estimateModal .est-items th:first-child,#estimateModal .est-items td:first-child{padding-left:12px;min-width:0;}
+  #estimateModal .est-items th:first-child{width:auto;}
+  #estimateModal .est-th-hsn{width:104px;}
+  #estimateModal .est-th-qty{width:72px;}
+  #estimateModal .est-th-unit{width:72px;}
+  #estimateModal .est-th-price{width:136px;}
+  #estimateModal .est-th-gst{width:76px;}
+  #estimateModal .est-th-amt{width:112px;}
+  #estimateModal .est-th-del{width:52px;}
+}
+/* quantity, price and GST % show their values in full: no spinner arrows covering the number */
+#estimateModal .est-items input[type="number"]{-moz-appearance:textfield;appearance:textfield;text-align:right;padding:0 8px;}
+#estimateModal .est-items input[type="number"]::-webkit-outer-spin-button,
+#estimateModal .est-items input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+#estimateModal .est-items .est-in-unit,#estimateModal .est-items .est-in-hsn{padding:0 8px;}
+#estimateModal .est-item-cell .est-in-name{flex:1 1 auto;min-width:0;}
+#estimateModal .est-del-cell{text-align:center;}
+
+
+/* ==========================================================================
+   Estimation items ≤1199px: compact cards instead of the table (no sideways scrolling).
+   Row 1 = type tag + item name + delete; row 2 = labelled HSN / Qty / Unit / Price / GST % / Amount.
+   1200px and wider keep the table layout above.
+   ========================================================================== */
+@media (max-width:1199px){
+  #estimateModal .est-items-wrap{overflow:visible;border:0;border-radius:0;}
+  #estimateModal .est-items{display:block;width:100%;min-width:0 !important;table-layout:auto;border-collapse:separate;}
+  #estimateModal .est-items thead{display:none;}
+  #estimateModal .est-items tbody{display:flex;flex-direction:column;gap:10px;}
+  #estimateModal .est-items tr{
+    display:grid;
+    grid-template-columns:minmax(0,1.1fr) minmax(0,.7fr) minmax(0,.8fr) minmax(0,1.3fr) minmax(0,.8fr) minmax(0,1fr);
+    grid-template-areas:
+      "item item item item item del"
+      "hsn  qty  unit price gst amt";
+    gap:10px;align-items:end;
+    padding:12px;border:1px solid #eaecf0;border-radius:12px;background:#fff;
+  }
+  #estimateModal .est-items td,
+  #estimateModal .est-items td:first-child{display:block;padding:0 !important;border:0;min-width:0 !important;width:auto;}
+  #estimateModal .est-items td:nth-child(1){grid-area:item;}
+  #estimateModal .est-items td:nth-child(2){grid-area:hsn;}
+  #estimateModal .est-items td:nth-child(3){grid-area:qty;}
+  #estimateModal .est-items td:nth-child(4){grid-area:unit;}
+  #estimateModal .est-items td:nth-child(5){grid-area:price;}
+  #estimateModal .est-items td:nth-child(6){grid-area:gst;}
+  #estimateModal .est-items td:nth-child(7){grid-area:amt;}
+  #estimateModal .est-items td.est-del-cell{grid-area:del;justify-self:end;align-self:center;}
+  /* small grey label above each detail box */
+  #estimateModal .est-items td[data-label]:not(:first-child)::before{
+    content:attr(data-label);display:block;margin-bottom:4px;
+    font-size:10.5px;font-weight:700;color:#98a2b3;text-transform:uppercase;letter-spacing:.03em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  #estimateModal .est-items td.est-amt{text-align:right;font-size:15px;line-height:36px;}
+  #estimateModal .est-items td.est-amt::before{text-align:right;line-height:1.4;}
+  #estimateModal .est-item-cell{gap:10px;}
+  #estimateModal .est-item-cell .est-in-name{font-weight:600;}
+  #estimateModal .est-empty{border:1px dashed #d0d5dd;border-radius:12px;}
+}
+/* phones: details split into two rows of three */
+@media (max-width:560px){
+  #estimateModal .est-items tr{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-areas:
+      "item  item item"
+      "hsn   qty  unit"
+      "price gst  amt";
+  }
+  #estimateModal .est-items td:nth-child(1){grid-column:1 / 3;}
+  #estimateModal .est-items td.est-del-cell{grid-area:auto;grid-column:3;grid-row:1;}
+}
+
+/* Leads KPI cards on phones: compact — smaller icon, tighter padding, short labels/numbers */
+@media (max-width:767px){
+  #leadsView .leads-kpi-grid{gap:8px;}
+  #leadsView .leads-kpi-card{align-items:flex-start;gap:10px;padding:10px 12px !important;border-radius:10px;}
+  #leadsView .leads-kpi-icon{width:34px;height:34px;border-radius:10px;font-size:17px;}
+  #leadsView .leads-kpi-icon svg,#leadsView .leads-kpi-icon .ti{width:17px;height:17px;font-size:17px;}
+  #leadsView .leads-kpi-body{min-width:0;}
+  #leadsView .leads-kpi-label{font-size:12.5px !important;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  #leadsView .leads-kpi-value{font-size:20px;margin-top:2px;}
+  #leadsView .leads-kpi-sub{font-size:11px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 }

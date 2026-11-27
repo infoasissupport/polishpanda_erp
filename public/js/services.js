@@ -306,8 +306,7 @@
     var metaHtml = '<span><i class="ti ti-hourglass"></i>' + escapeHtml(formatDurationLabel(svc.durationMinutes)) + '</span>' +
                    '<span><i class="ti ti-users"></i>' + staffCount + ' Staff</span>' +
                    scHtml +
-                   prodHtml +
-                   '<span class="service-status ' + (isActive ? 'active' : 'inactive') + '">' + (isActive ? 'Active' : 'Inactive') + '</span>';
+                   prodHtml;
                  
     var actionsHtml = '<div class="service-actions">' +
         '<button type="button" class="btn service-edit-btn" data-action="edit" data-id="' + svc.id + '">' +
@@ -320,7 +319,8 @@
     return (
       '<div class="service-card" data-id="' + svc.id + '">' +
         '<div class="service-card-top">' +
-          '<div class="service-icon svc-badge-' + theme.color + '"><i class="ti ' + theme.icon + '"></i></div>' +
+          // status badge where the service icon used to be
+          '<span class="service-status service-status--top ' + (isActive ? 'active' : 'inactive') + '">' + (isActive ? 'Active' : 'Inactive') + '</span>' +
           '<div class="service-price">' + formatPrice(svc.price) + '</div>' +
         '</div>' +
         '<div class="service-name-row">' +

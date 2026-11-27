@@ -24,6 +24,14 @@
   <!-- Everything below the header scrolls in one area; the header stays fixed -->
   <div class="stf-scroll-area" id="staffScrollArea">
   <div class="stf-stats-grid">
+    <div class="stf-stat-card stf-stat-birthday">
+      <div class="stf-stat-icon stf-badge-pink"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M4 20v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6"/><path d="M4 16c1.3 0 1.3-1 2.7-1s1.3 1 2.6 1 1.4-1 2.7-1 1.3 1 2.6 1 1.4-1 2.7-1 1.4 1 2.7 1"/><path d="M8 12V9M12 12V9M16 12V9"/><path d="M8 6.5a1 1 0 0 0 1-1C9 4.6 8 3.5 8 3.5S7 4.6 7 5.5a1 1 0 0 0 1 1zM12 6.5a1 1 0 0 0 1-1c0-.9-1-2-1-2s-1 1.1-1 2a1 1 0 0 0 1 1zM16 6.5a1 1 0 0 0 1-1c0-.9-1-2-1-2s-1 1.1-1 2a1 1 0 0 0 1 1z"/></svg></div>
+      <div class="stf-stat-body">
+        <div class="stf-stat-label">🎂 Birthday Today</div>
+        <div class="stf-stat-value" id="kpiBirthdayToday">0</div>
+        <div class="stf-stat-sub" id="kpiBirthdaySub">No birthdays today</div>
+      </div>
+    </div>
     <div class="stf-stat-card">
       <div class="stf-stat-icon stf-badge-blue"><i class="ti ti-users"></i></div>
       <div class="stf-stat-body">
@@ -168,8 +176,9 @@
             </select>
           </div>
         </div>
-        <div class="modal-row">
+        <div class="modal-row-3">
           <div class="field"><label for="stfHighestEducation">Highest Education</label><input type="text" id="stfHighestEducation" placeholder="e.g. B.Com, 12th Pass, Diploma"></div>
+          <div class="field"><label for="stfDob">Date of Birth</label><input type="date" id="stfDob" max="{{ now()->toDateString() }}"></div>
           <div class="field"><label for="stfJoinedAt">Joining Date</label><input type="date" id="stfJoinedAt"></div>
         </div>
         <div class="modal-row">
@@ -208,7 +217,13 @@
               <option>9 AM – 6 PM</option>
               <option>8 AM – 5 PM</option>
               <option>1 PM – 10 PM</option>
+              <option value="__custom__">Custom…</option>
             </select>
+            <div class="stf-shift-custom" id="stfShiftCustom" style="display:none;">
+              <label class="stf-shift-time"><span>Start</span><input type="time" id="stfShiftStart" value="09:00"></label>
+              <span class="stf-shift-sep">–</span>
+              <label class="stf-shift-time"><span>End</span><input type="time" id="stfShiftEnd" value="18:00"></label>
+            </div>
           </div>
         </div>
         <div class="modal-row" id="managerPasswordRow" style="display:none;">
@@ -236,7 +251,7 @@
     </div>
     <form id="attendanceForm">
       <div class="modal-body">
-        <p style="margin-bottom: 1.25rem; color: #667085; font-size: 0.85rem; line-height: 1.4;">
+        <p style=" color: #667085; font-size: 0.85rem; line-height: 1.4;">
           Update the attendance status of all staff members for today.
         </p>
         <div id="attendanceStaffList" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 400px; overflow-y: auto; padding-right: 4px;">

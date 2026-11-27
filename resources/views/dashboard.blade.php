@@ -16,7 +16,10 @@
       <div class="view-title dash-page-title">Dashboard</div>
 
     </div>
-    <button class="btn btn-accent dash-hero-btn" id="newBookingBtn"><i class="ti ti-plus"></i>New Appointment</button>
+    <div class="dash-hero-actions">
+      <button type="button" class="btn dash-hero-btn dash-hero-btn--outline" id="newProductBtn"><i class="ti ti-plus"></i>New Product</button>
+      <button class="btn btn-accent dash-hero-btn" id="newBookingBtn"><i class="ti ti-plus"></i>New Appointment</button>
+    </div>
   </div>
   <div class="fixedScrolldivCommon">
 
@@ -114,17 +117,14 @@
     </div>
   </div>
 
-  <div class="grid-2 dash-main-grid">
+  <div class="grid-2 dash-main-grid dash-main-grid--single">
     <div class="card dash-panel">
       <div class="dash-panel-head">
         <span class="dash-panel-title"><span class="dash-panel-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.2 10.2 6.9 5.6A2.4 2.4 0 0 1 9.1 4h5.8a2.4 2.4 0 0 1 2.2 1.6l1.7 4.6A2.6 2.6 0 0 1 21 12.8V17a1 1 0 0 1-1 1h-1v1.2a1.3 1.3 0 0 1-2.6 0V18H7.6v1.2a1.3 1.3 0 0 1-2.6 0V18H4a1 1 0 0 1-1-1v-4.2a2.6 2.6 0 0 1 2.2-2.6zm2.1-.2h9.4l-1.3-3.6a.9.9 0 0 0-.8-.6H9.4a.9.9 0 0 0-.8.6L7.3 10zM7 15.2a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6zm10 0a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6z"/></svg></span>Live Queue</span>
         <a class="dash-outline-btn" href="/queue">Open Queue <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6l-6 6"/></svg></a>
       </div>
-      <div class="dash-table-wrap">
-        <table class="dash-table">
-          <thead><tr><th>#</th><th>Vehicle</th><th>Customer</th><th>Service</th><th>Wait Time</th><th>Status</th></tr></thead>
-          <tbody id="dashboardQueueRows"></tbody>
-        </table>
+      <div class="dash-queue-wrap">
+        <div class="dash-queue-list" id="dashboardQueueRows"></div>
         <div class="dash-empty dash-empty--queue" id="dashQueueEmpty">
           <span class="dash-empty-art"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.2 10.2 6.9 5.6A2.4 2.4 0 0 1 9.1 4h5.8a2.4 2.4 0 0 1 2.2 1.6l1.7 4.6A2.6 2.6 0 0 1 21 12.8V17a1 1 0 0 1-1 1h-1v1.2a1.3 1.3 0 0 1-2.6 0V18H7.6v1.2a1.3 1.3 0 0 1-2.6 0V18H4a1 1 0 0 1-1-1v-4.2a2.6 2.6 0 0 1 2.2-2.6zm2.1-.2h9.4l-1.3-3.6a.9.9 0 0 0-.8-.6H9.4a.9.9 0 0 0-.8.6L7.3 10zM7 15.2a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6zm10 0a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6z"/></svg><span class="dash-empty-clock"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span></span>
           <div class="dash-empty-title">No cars in queue right now</div>
@@ -133,46 +133,8 @@
         </div>
       </div>
     </div>
-    <div class="card dash-panel">
-      <div class="dash-panel-head">
-        <span class="dash-panel-title"><span class="dash-panel-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 20V11M9.3 20V6M14.6 20V9M20 20V4"/></svg></span>Revenue — <span id="revenueRangeTitle">Last 7 Days</span></span>
-        <span class="card-title-actions chart-actions">
-          <label class="chart-type-select" for="revenueChartType"><svg class="chart-select-icon chart-select-icon--accent" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 20v-8M12 20V5M19 20v-11"/></svg><span class="chart-type-value" id="revenueChartTypeLabel">Bar</span><select id="revenueChartType" aria-label="Chart type"><option value="column">Bar</option><option value="line">Line</option><option value="area">Area</option></select><i class="ti ti-chevron-down"></i></label>
-          <label class="chart-type-select chart-range-select" for="revenueRange"><svg class="chart-select-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></svg><span class="chart-type-value" id="revenueRangeLabel">Last 7 Days</span><select id="revenueRange" aria-label="Date range"><option value="7">Last 7 Days</option><option value="14">Last 14 Days</option><option value="30">Last 30 Days</option></select><i class="ti ti-chevron-down"></i></label>
-        </span>
-      </div>
-      <div id="revenueChart"></div>
-    </div>
   </div>
 
-  <div class="dash-bottom-grid">
-    <div class="card dash-panel">
-      <div class="dash-panel-head">
-        <span class="dash-panel-title dash-panel-title--sm"><span class="dash-panel-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M7 15h3"/></svg></span>Recent Payments</span>
-        <a class="dash-outline-btn dash-outline-btn--sm" href="/payments">View All <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6l-6 6"/></svg></a>
-      </div>
-      <div class="dash-table-wrap">
-        <table class="dash-table dash-table--sm">
-          <thead><tr><th>Invoice #</th><th>Customer</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
-          <tbody id="dashRecentPayments"></tbody>
-        </table>
-        <div class="dash-empty" id="dashRecentPaymentsEmpty"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg><div class="dash-empty-sub">No payments found</div></div>
-      </div>
-    </div>
-    <div class="card dash-panel">
-      <div class="dash-panel-head">
-        <span class="dash-panel-title dash-panel-title--sm"><span class="dash-panel-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l8 4l-8 4l-8-4z"/><path d="M4 12l8 4l8-4"/><path d="M4 16l8 4l8-4"/></svg></span>Top Services (This Month)</span>
-        <a class="dash-outline-btn dash-outline-btn--sm" href="/reports?timeframe=monthly">View All <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6l-6 6"/></svg></a>
-      </div>
-      <div class="dash-table-wrap">
-        <table class="dash-table dash-table--sm">
-          <thead><tr><th>Service</th><th>Count</th><th>Revenue</th></tr></thead>
-          <tbody id="dashTopServices"></tbody>
-        </table>
-        <div class="dash-empty" id="dashTopServicesEmpty"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 20v-6M12 20V6M18 20v-10"/></svg><div class="dash-empty-sub">No service data available</div></div>
-      </div>
-    </div>
-  </div>
   </div>
 </section>
 
@@ -308,9 +270,80 @@
     </form>
   </div>
 </div>
+
+<div class="modal-overlay" id="newProductModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">New Product</div>
+      <div class="modal-close" onclick="window.SW.closeModal('newProductModal')"><i class="ti ti-x"></i></div>
+    </div>
+    <form id="newProductForm">
+      <div class="modal-body">
+        <div class="modal-row-3">
+          <div class="field" style="position:relative;">
+            <label for="npCustomer">Customer name</label>
+            <input type="text" id="npCustomer" required placeholder="Customer Name" autocomplete="off">
+            <div id="npCustomerDropdown" class="autocomplete-dropdown" style="display:none; position:absolute; top:100%; left:0; width:100%; background:#fff; border:1px solid #e2e8f0; z-index:100; max-height:200px; overflow-y:auto; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-top:4px;"></div>
+          </div>
+          <div class="field" style="position:relative;">
+            <label for="npPhone">Phone</label>
+            <input type="tel" id="npPhone" required inputmode="numeric" pattern="[0-9]*" maxlength="15" oninput="this.value = this.value.replace(/[^0-9]/g, '')" placeholder="Phone" autocomplete="off">
+            <div id="npPhoneDropdown" class="autocomplete-dropdown" style="display:none; position:absolute; top:100%; left:0; width:100%; background:#fff; border:1px solid #e2e8f0; z-index:100; max-height:200px; overflow-y:auto; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-top:4px;"></div>
+          </div>
+          <div class="field"><label for="npVehicle">Vehicle Name</label><input type="text" id="npVehicle" placeholder="Vehicle Name"></div>
+        </div>
+        <div class="modal-row-3">
+          <div class="field"><label for="npVehiclePlate">Vehicle Number</label><input type="text" id="npVehiclePlate" placeholder="Vehicle Number"></div>
+          <div class="field"><label for="npVehicleType">Vehicle Type</label>
+            <select id="npVehicleType">
+              <option value="hatchback">HATCHBACK</option>
+              <option value="sedan" selected>SEDAN/COMPACT SUV</option>
+              <option value="suv">SUV/XL SEDAN/LUXURY</option>
+              <option value="scooter">SCOOTER</option>
+              <option value="bike">BIKE</option>
+              <option value="bullet">BULLET/PREMIUM BIKE</option>
+            </select>
+          </div>
+          <div class="field"><label for="npSource">Source</label>
+            <select id="npSource">
+              <option value="walkin">Walk-in</option>
+              <option value="phone">Phone</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label style="margin-bottom:6px;display:block;">Select Products (Select one or more)</label>
+          <div class="svc-select" id="npProdSelect">
+            <div class="svc-select-control" id="npProdControl">
+              <div class="svc-chip-list" id="npProdChips">
+                <span class="svc-placeholder">Search and select products…</span>
+              </div>
+              <i class="ti ti-chevron-down svc-caret"></i>
+            </div>
+            <div class="svc-dropdown" id="npProdDropdown">
+              <div class="svc-dropdown-search">
+                <input type="text" id="npProdSearch" class="svc-search-input" placeholder="Search products…" aria-label="Search products" autocomplete="off">
+              </div>
+              <div id="npProdContainer" class="svc-options"></div>
+              <div class="svc-empty" id="npProdEmpty" style="display:none;">No products match your search.</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-row-3">
+          <div class="field"><label for="npDate">Date</label><input type="date" id="npDate"></div>
+          <div class="field"><label for="npTime">Time</label><input type="time" id="npTime" required></div>
+        </div>
+        <div class="field"><label for="npNotes">Notes</label><textarea id="npNotes" placeholder="Notes"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" onclick="window.SW.closeModal('newProductModal')">Cancel</button>
+        <button type="submit" class="btn btn-accent" id="npSubmitBtn"><i class="ti ti-plus"></i>Save</button>
+      </div>
+    </form>
+  </div>
+</div>
 @endsection
 
 @section('scripts')
-  <script src="{{ asset('js/vendor/highcharts/highcharts.js') }}"></script>
   <script src="{{ asset('js/dashboard.js') }}?v={{ filemtime(public_path('js/dashboard.js')) }}"></script>
 @endsection

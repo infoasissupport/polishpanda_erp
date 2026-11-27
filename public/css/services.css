@@ -353,3 +353,10 @@ color: var(--accent)!important;
 @media (max-width:1199px){ :is(#services,#products) .svc-grid{grid-template-columns:1fr 1fr} }
 @media (max-width:640px){ :is(#services,#products) .svc-grid{grid-template-columns:minmax(0,1fr);} }
 :is(#services,#products) .svc-grid.list-view{grid-template-columns:minmax(0,1fr);}
+
+/* Service card: Active / Inactive badge sits top-left where the service icon used to be */
+:is(#services,#products) .service-card-top{align-items:center;}
+:is(#services,#products) .service-status--top{margin-left:0;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:700;}
+:is(#services,#products) .service-status--top::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;}
+:is(#services,#products) .service-status--top.active{background:#ecfdf3;color:#15803d;}
+:is(#services,#products) .service-status--top.inactive{background:#f2f4f7;color:#475467;}

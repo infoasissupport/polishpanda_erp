@@ -16,5 +16,7 @@ class Staff extends Model
         'performance' => 'decimal:2',
         'is_active' => 'boolean',
         'joined_at' => 'date',
+        // plain "YYYY-MM-DD" in JSON so the browser can't shift the day across timezones
+        'date_of_birth' => 'date:Y-m-d',
     ];
 }

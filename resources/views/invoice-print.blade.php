@@ -123,8 +123,26 @@
   // Amount in words with paise
   $rupees = (int) floor(round($total, 2));
   $paise = (int) round(($total - $rupees) * 100);
-  $words = ucwords(\Illuminate\Support\Number::spell($rupees)) . ' Rupees';
-  if ($paise > 0) $words .= ' and ' . ucwords(\Illuminate\Support\Number::spell($paise)) . ' Paisa';
+  // Number::spell needs PHP's intl extension; without it, fall back to a plain Indian-system speller
+  $spell = function (int $n) {
+    if (extension_loaded('intl')) return ucwords(\Illuminate\Support\Number::spell($n));
+    $ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    $tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    $two = fn ($x) => $x < 20 ? $ones[$x] : trim($tens[intdiv($x, 10)] . ' ' . $ones[$x % 10]);
+    $three = fn ($x) => trim(($x >= 100 ? $ones[intdiv($x, 100)] . ' Hundred ' : '') . ($x % 100 ? $two($x % 100) : ''));
+    $words = function ($x) use (&$words, $two, $three) {
+      if ($x === 0) return 'Zero';
+      $parts = [];
+      if ($x >= 10000000) { $parts[] = $words(intdiv($x, 10000000)) . ' Crore'; $x %= 10000000; }
+      if ($x >= 100000) { $parts[] = $two(intdiv($x, 100000)) . ' Lakh'; $x %= 100000; }
+      if ($x >= 1000) { $parts[] = $two(intdiv($x, 1000)) . ' Thousand'; $x %= 1000; }
+      if ($x > 0) $parts[] = $three($x);
+      return implode(' ', $parts);
+    };
+    return $words($n);
+  };
+  $words = $spell($rupees) . ' Rupees';
+  if ($paise > 0) $words .= ' and ' . $spell($paise) . ' Paisa';
   $words .= ' only';
 
   $states = [
@@ -211,6 +229,11 @@
     .bottom .sign { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
     .bottom .sign .inner { border-left: 1px solid #555; border-top: 1px solid #555; padding: 8px 5px; text-align: center; min-height: 110px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
     .bottom .sign img { max-height: 55px; max-width: 160px; }
+    .bottom .sign .sign-images { display: flex; align-items: center; justify-content: center; gap: 14px; }
+    .bottom .sign img.seal { max-height: 80px; max-width: 80px; object-fit: contain; }
+    .bottom .pay { flex: 0 0 150px; border-left: 1px solid #555; border-top: 1px solid #555; padding: 8px 5px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 10px; }
+    .bottom .pay img { width: 110px; height: 110px; object-fit: contain; }
+    .bottom .pay .pay-id { font-size: 9.5px; word-break: break-all; }
 
     @page { size: A4; margin: 0; }
     @media print { body { background: #fff; } .page { margin: 0; } }
@@ -374,11 +397,28 @@
             <li>By accepting delivery, the customer agrees to these terms &amp; conditions.</li>
           </ol>
         </div>
+        {{-- UPI QR from Settings; only while the invoice still has something to pay --}}
+        @if($settings->upi_qr_code && $invoice->status !== 'paid')
+          <div class="pay">
+            <div class="b">Scan to Pay</div>
+            <img src="{{ asset($settings->upi_qr_code) }}" alt="UPI QR code">
+            @if($settings->upi_id)
+              <div class="pay-id">UPI ID: {{ $settings->upi_id }}</div>
+            @endif
+          </div>
+        @endif
         <div class="sign">
           <div class="inner">
             <div>For, {{ $companyName }}</div>
-            @if($settings->signature)
-              <img src="{{ asset($settings->signature) }}" alt="Signature">
+            @if($settings->signature || $settings->seal)
+              <div class="sign-images">
+                @if($settings->seal)
+                  <img class="seal" src="{{ asset($settings->seal) }}" alt="Seal">
+                @endif
+                @if($settings->signature)
+                  <img src="{{ asset($settings->signature) }}" alt="Signature">
+                @endif
+              </div>
             @endif
             <div>Authorized Signatory</div>
           </div>

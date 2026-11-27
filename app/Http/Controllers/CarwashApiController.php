@@ -910,7 +910,50 @@ FILES:
             'follow_up_date' => 'nullable|date',
             'notes' => 'nullable|string',
             'branch_id' => 'nullable|integer',
+            // Estimate built in the lead card's Estimation popup
+            'estimate' => 'nullable|array',
+            'estimate.items' => 'nullable|array',
+            'estimate.items.*.name' => 'required_with:estimate.items|string|max:255',
+            'estimate.items.*.type' => 'nullable|string|max:20',
+            'estimate.items.*.price' => 'nullable|numeric|min:0',
+            'estimate.items.*.quantity' => 'nullable|numeric|min:0.01',
+            'estimate.items.*.hsn' => 'nullable|string|max:50',
+            'estimate.items.*.unit' => 'nullable|string|max:20',
+            'estimate.items.*.gst_rate' => 'nullable|numeric|min:0|max:100',
+            'estimate.discount' => 'nullable|numeric|min:0',
+            'estimate.notes' => 'nullable|string',
+            'estimate.valid_until' => 'nullable|date',
         ]);
+
+        if (array_key_exists('estimate', $validated) && is_array($validated['estimate'])) {
+            // Totals are worked out here so the saved estimate and Est. Value always agree
+            $items = array_values(array_map(fn ($it) => [
+                'name' => trim($it['name']),
+                'type' => $it['type'] ?? 'custom',
+                'price' => round((float) ($it['price'] ?? 0), 2),
+                'quantity' => round((float) ($it['quantity'] ?? 1), 2) ?: 1,
+                'hsn' => trim((string) ($it['hsn'] ?? '')) ?: null,
+                'unit' => trim((string) ($it['unit'] ?? '')) ?: 'Nos',
+                'gst_rate' => round((float) ($it['gst_rate'] ?? 0), 2), // price is GST-inclusive at this rate
+            ], $validated['estimate']['items'] ?? []));
+            $subtotal = round(array_sum(array_map(fn ($it) => $it['price'] * $it['quantity'], $items)), 2);
+            $discount = min($subtotal, round((float) ($validated['estimate']['discount'] ?? 0), 2));
+            $validated['estimate'] = [
+                // e.g. PP-EST-26-27-12: financial year (Apr–Mar) + lead number; kept once assigned
+                'number' => $lead->estimate['number'] ?? ('PP-EST-' . (now()->month >= 4 ? now()->format('y') . '-' . now()->addYear()->format('y') : now()->subYear()->format('y') . '-' . now()->format('y')) . '-' . $lead->id),
+                'date' => $lead->estimate['date'] ?? now()->toDateString(),
+                // random key for the customer's estimate link (/estimate/{token}) sent on WhatsApp
+                'share_token' => $lead->estimate['share_token'] ?? Str::random(40),
+                'items' => $items,
+                'subtotal' => $subtotal,
+                'discount' => $discount,
+                'total' => round($subtotal - $discount, 2),
+                'notes' => $validated['estimate']['notes'] ?? null,
+                'valid_until' => $validated['estimate']['valid_until'] ?? null,
+                'updated_at' => now()->toIso8601String(),
+            ];
+            $validated['estimated_value'] = $validated['estimate']['total'];
+        }
 
         $lead->update($validated);
 
@@ -983,6 +1026,84 @@ FILES:
             'message' => 'Lead converted successfully',
             'lead' => $lead->fresh('customer'),
             'customer' => $customer->load('vehicles'),
+        ]);
+    }
+
+    /**
+     * Every follow-up behind the Leads page "Follow-ups" KPI card.
+     * "scheduled" uses exactly the KPI's rule (follow-up date set, lead not converted/lost),
+     * so its length always equals stats.follow_up_scheduled. "completed" are follow-ups
+     * closed with completeLeadFollowUp().
+     */
+    public function getLeadFollowUpsOverview(Request $request)
+    {
+        $userId = $this->currentUserId();
+        $leadsQuery = Lead::where('user_id', $userId)->with(['customer', 'followUps']);
+        $leadsQuery = $this->applyBranchFilter($leadsQuery, $request);
+        if ($request->filled('category') && $request->input('category') !== 'all') {
+            $leadsQuery->where('category', $request->input('category'));
+        }
+        $leads = $leadsQuery->get();
+
+        $scheduled = $leads
+            ->filter(fn ($lead) => !empty($lead->follow_up_date) && !in_array($lead->status, ['converted', 'lost']))
+            ->sortBy(fn ($lead) => $lead->follow_up_date->format('Y-m-d'))
+            ->values();
+
+        $completed = LeadFollowUp::whereIn('lead_id', $leads->pluck('id'))
+            ->where('interaction_type', 'Follow-up Completed')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($log) use ($leads) {
+                $log->setAttribute('lead', $leads->firstWhere('id', $log->lead_id));
+                return $log;
+            })
+            ->values();
+
+        return response()->json([
+            'scheduled' => $scheduled,
+            'completed' => $completed,
+        ]);
+    }
+
+    /**
+     * Close a lead's scheduled follow-up: log it in the lead's follow-up history and
+     * clear (or move to next_follow_up_date) the lead's follow_up_date.
+     */
+    public function completeLeadFollowUp(Request $request, $id)
+    {
+        $userId = $this->currentUserId();
+        $lead = Lead::where('user_id', $userId)->findOrFail($id);
+
+        $validated = $request->validate([
+            'notes' => 'nullable|string',
+            'next_follow_up_date' => 'nullable|date',
+        ]);
+
+        $dueLabel = $lead->follow_up_date ? $lead->follow_up_date->format('d M Y') : null;
+        $notes = trim($validated['notes'] ?? '');
+        if ($notes === '') {
+            $notes = 'Follow-up completed' . ($dueLabel ? ' (was due ' . $dueLabel . ')' : '');
+        }
+
+        $log = DB::transaction(function () use ($lead, $userId, $notes, $validated) {
+            $log = LeadFollowUp::create([
+                'lead_id' => $lead->id,
+                'user_id' => $userId,
+                'interaction_type' => 'Follow-up Completed',
+                'notes' => $notes,
+                'next_follow_up_date' => $validated['next_follow_up_date'] ?? null,
+                'status' => $lead->status,
+            ]);
+            $lead->update(['follow_up_date' => $validated['next_follow_up_date'] ?? null]);
+            return $log;
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Follow-up marked as completed',
+            'follow_up' => $log,
+            'lead' => $lead->fresh(['customer', 'followUps']),
         ]);
     }
 
@@ -1317,6 +1438,7 @@ FILES:
             'role' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
             'joined_at' => 'nullable|date',
+            'date_of_birth' => 'nullable|date|before_or_equal:today',
             'date' => 'nullable|date',
         ]);
 
@@ -1343,6 +1465,9 @@ FILES:
         }
         if (!Schema::hasColumn('staff', 'joined_at')) {
             unset($staffData['joined_at']);
+        }
+        if (!Schema::hasColumn('staff', 'date_of_birth')) {
+            unset($staffData['date_of_birth']);
         }
 
         $staff = Staff::create($staffData);
@@ -1401,6 +1526,7 @@ FILES:
             'role' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
             'joined_at' => 'nullable|date',
+            'date_of_birth' => 'nullable|date|before_or_equal:today',
             'date' => 'nullable|date',
         ]);
 
@@ -1460,6 +1586,9 @@ FILES:
         }
         if (!Schema::hasColumn('staff', 'joined_at')) {
             unset($staffData['joined_at']);
+        }
+        if (!Schema::hasColumn('staff', 'date_of_birth')) {
+            unset($staffData['date_of_birth']);
         }
         $staff->update($staffData);
 
@@ -2279,6 +2408,7 @@ FILES:
             'customer' => 'required|string|max:255',
             'phone' => 'required|string|max:255',
             'service' => 'required|string|max:255',
+            'vehicle' => 'nullable|string|max:255',
             'amount' => 'required_without:subtotal|numeric|min:0',
             'subtotal' => 'nullable|numeric|min:0',
             'tax_rate' => 'nullable|numeric|min:0|max:100',
@@ -2332,6 +2462,9 @@ FILES:
         ]);
         if (Schema::hasColumn('invoices', 'tax_inclusive')) {
             $invoice->tax_inclusive = true;
+        }
+        if (!empty($validated['vehicle']) && Schema::hasColumn('invoices', 'vehicle')) {
+            $invoice->vehicle = $validated['vehicle']; // "PLATE (Model)", as job card invoices store it
         }
 
         $newItems = $this->parseItemsPayload($validated, $userId, $invoice->branch_id);
@@ -3261,6 +3394,10 @@ FILES:
     {
         $userId = $this->currentUserId();
         $settings = \App\Models\CompanySetting::firstOrCreate(['user_id' => $userId]);
+        // Full image URLs built exactly like the invoice PDF (asset()), so the estimate shows the same logo/signature
+        $settings->setAttribute('company_logo_url', $settings->company_logo ? asset($settings->company_logo) : null);
+        $settings->setAttribute('signature_url', $settings->signature ? asset($settings->signature) : null);
+        $settings->setAttribute('seal_url', $settings->seal ? asset($settings->seal) : null);
         return response()->json($settings);
     }
 
@@ -3269,7 +3406,22 @@ FILES:
         $userId = $this->currentUserId();
         $settings = \App\Models\CompanySetting::firstOrCreate(['user_id' => $userId]);
 
-        $data = $request->except(['company_logo', 'upi_qr_code', 'signature']);
+        $data = $request->except(['company_logo', 'upi_qr_code', 'signature', 'seal']);
+
+        // A failed upload (e.g. bigger than PHP's upload_max_filesize) used to be skipped silently,
+        // so "Settings saved" appeared but the logo/signature never changed. Report it instead.
+        $labels = ['company_logo' => 'Company logo', 'upi_qr_code' => 'UPI QR code', 'signature' => 'Signature', 'seal' => 'Seal'];
+        foreach ($labels as $key => $label) {
+            $file = $request->file($key);
+            if ($file && !$file->isValid()) {
+                $tooBig = in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true);
+                return response()->json([
+                    'message' => $label . ' was not uploaded: ' . ($tooBig
+                        ? 'the file is larger than the ' . ini_get('upload_max_filesize') . 'B limit. Please use a smaller image.'
+                        : $file->getErrorMessage()),
+                ], 422);
+            }
+        }
 
         if ($request->hasFile('company_logo')) {
             $file = $request->file('company_logo');
@@ -3290,6 +3442,13 @@ FILES:
             $filename = 'sig_' . $userId . '_' . time() . '.' . $file->getClientOriginalExtension();
             $file->move(public_path('uploads/settings'), $filename);
             $data['signature'] = 'uploads/settings/' . $filename;
+        }
+
+        if ($request->hasFile('seal') && Schema::hasColumn('company_settings', 'seal')) {
+            $file = $request->file('seal');
+            $filename = 'seal_' . $userId . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads/settings'), $filename);
+            $data['seal'] = 'uploads/settings/' . $filename;
         }
 
         $settings->update($data);

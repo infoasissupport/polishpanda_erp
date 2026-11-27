@@ -762,6 +762,7 @@
             '<div class="lead-actions">' +
               (lead.phone ? '<a href="' + waUrl + '" target="_blank" rel="noopener noreferrer" class="btn-whatsapp-action" title="Chat / Send Renewal on WhatsApp" aria-label="WhatsApp"><i class="ti ti-brand-whatsapp"></i></a>' : '') +
               '<button type="button" class="btn-followup-action" data-id="' + lead.id + '" title="Follow-up History & Updates" aria-label="Follow-ups"><i class="ti ti-calendar-event"></i></button>' +
+              '<button type="button" class="btn-estimate-action" data-id="' + lead.id + '" title="Estimation / Quote" aria-label="Estimation"><i class="ti ti-calculator"></i></button>' +
               '<button type="button" class="row-edit-btn" data-id="' + lead.id + '" title="Edit Lead" aria-label="Edit">' +
                 '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
               '</button>' +
@@ -790,6 +791,7 @@
             '<div class="lead-actions">' +
               (lead.phone ? '<a href="' + waUrl + '" target="_blank" rel="noopener noreferrer" class="btn-whatsapp-action" title="Chat on WhatsApp" aria-label="WhatsApp"><i class="ti ti-brand-whatsapp"></i></a>' : '') +
               '<button type="button" class="btn-followup-action" data-id="' + lead.id + '" title="Follow-up History & Updates" aria-label="Follow-ups"><i class="ti ti-calendar-event"></i></button>' +
+              '<button type="button" class="btn-estimate-action" data-id="' + lead.id + '" title="Estimation / Quote" aria-label="Estimation"><i class="ti ti-calculator"></i></button>' +
               '<button type="button" class="row-edit-btn" data-id="' + lead.id + '" title="Edit Lead" aria-label="Edit">' +
                 '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
               '</button>' +
@@ -818,6 +820,7 @@
             '<div class="lead-actions">' +
               (lead.phone ? '<a href="' + waUrl + '" target="_blank" rel="noopener noreferrer" class="btn-whatsapp-action" title="Chat on WhatsApp" aria-label="WhatsApp"><i class="ti ti-brand-whatsapp"></i></a>' : '') +
               '<button type="button" class="btn-followup-action" data-id="' + lead.id + '" title="Follow-up History & Updates" aria-label="Follow-ups"><i class="ti ti-calendar-event"></i></button>' +
+              '<button type="button" class="btn-estimate-action" data-id="' + lead.id + '" title="Estimation / Quote" aria-label="Estimation"><i class="ti ti-calculator"></i></button>' +
               (lead.status !== 'converted' ? '<button type="button" class="btn-convert-action" data-id="' + lead.id + '" title="Convert to Customer" aria-label="Convert"><i class="ti ti-user-plus"></i></button>' : '<span title="Customer Created" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;color:#059669;font-size:16px;"><i class="ti ti-circle-check"></i></span>') +
               '<button type="button" class="row-edit-btn" data-id="' + lead.id + '" title="Edit Lead" aria-label="Edit">' +
                 '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
@@ -857,6 +860,17 @@
             e.stopPropagation();
           }
           openFollowUpModal(lead);
+        });
+      }
+
+      var estBtn = tr.querySelector('.btn-estimate-action');
+      if (estBtn) {
+        estBtn.addEventListener('click', function (e) {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          openEstimateModal(lead);
         });
       }
 
@@ -1677,8 +1691,559 @@
     refresh: loadLeads
   };
 
+  // ---------- All Follow-Ups popup (opened from the Follow-ups KPI card) ----------
+  var fuxCard = document.getElementById('kpiFollowUpCard');
+  var fuxRowsEl = document.getElementById('fuxRows');
+  var fuxEmptyEl = document.getElementById('fuxEmpty');
+  var fuxSearchEl = document.getElementById('fuxSearch');
+  var FUX = { scheduled: [], completed: [] };
+  var fuxTab = 'all';
+  var fuxBusy = false;
+
+  // local YYYY-MM-DD (follow-up dates are calendar dates, compare without timezone shifts)
+  function fuxToday() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function fuxDay(value) { return value ? String(value).slice(0, 10) : ''; }
+  function fuxFormatDay(ymd) {
+    var p = fuxDay(ymd).split('-');
+    if (p.length !== 3) return '—';
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return p[2] + ' ' + months[Number(p[1]) - 1] + ' ' + p[0];
+  }
+  function fuxRelative(ymd) {
+    var p = fuxDay(ymd).split('-'), t = fuxToday().split('-');
+    if (p.length !== 3) return '';
+    var diff = Math.round((new Date(+p[0], +p[1] - 1, +p[2]) - new Date(+t[0], +t[1] - 1, +t[2])) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    if (diff === -1) return 'Yesterday';
+    return diff < 0 ? Math.abs(diff) + ' days overdue' : 'In ' + diff + ' days';
+  }
+  function fuxBucket(lead) {
+    var day = fuxDay(lead.follow_up_date), today = fuxToday();
+    return day < today ? 'overdue' : (day === today ? 'today' : 'upcoming');
+  }
+  // what the follow-up is about: service / policy / trip, then the latest logged note or the lead's notes
+  function fuxPurpose(lead) {
+    if (!lead) return { title: '', note: '' };
+    var title = lead.category === 'insurance' ? [lead.insurance_type, lead.policy_number ? 'Policy ' + lead.policy_number : ''].filter(Boolean).join(' · ')
+      : lead.category === 'travel' ? [lead.destination, lead.travel_date ? 'Dep ' + fuxFormatDay(lead.travel_date) : ''].filter(Boolean).join(' · ')
+      : [lead.service_interested, lead.vehicle].filter(Boolean).join(' · ');
+    var logs = (lead.follow_ups || []).slice().sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); });
+    return { title: title, note: logs.length ? logs[0].notes : (lead.notes || '') };
+  }
+
+  function fuxRows() {
+    var q = (fuxSearchEl && fuxSearchEl.value || '').trim().toLowerCase();
+    var qDigits = q.replace(/[^0-9]/g, '');
+    function matches(lead) {
+      if (!q) return true;
+      if (!lead) return false;
+      if (String(lead.name || '').toLowerCase().indexOf(q) !== -1) return true;
+      return qDigits.length > 0 && String(lead.phone || '').replace(/[^0-9]/g, '').indexOf(qDigits) !== -1;
+    }
+    if (fuxTab === 'completed') {
+      return FUX.completed.filter(function (log) { return matches(log.lead); })
+        .map(function (log) { return { kind: 'completed', lead: log.lead, log: log }; });
+    }
+    return FUX.scheduled.filter(function (lead) {
+      return (fuxTab === 'all' || fuxBucket(lead) === fuxTab) && matches(lead);
+    }).map(function (lead) { return { kind: fuxBucket(lead), lead: lead }; });
+  }
+
+  var FUX_STATUS = {
+    overdue: { cls: 'overdue', label: 'Overdue' },
+    today: { cls: 'today', label: 'Due Today' },
+    upcoming: { cls: 'upcoming', label: 'Upcoming' },
+    completed: { cls: 'completed', label: 'Completed' }
+  };
+
+  function fuxRender() {
+    var counts = { all: FUX.scheduled.length, today: 0, upcoming: 0, overdue: 0, completed: FUX.completed.length };
+    FUX.scheduled.forEach(function (lead) { counts[fuxBucket(lead)]++; });
+
+    document.getElementById('fuxHeaderCount').textContent = counts.all + ' Follow-Up' + (counts.all === 1 ? '' : 's');
+    document.getElementById('fuxSumTotal').textContent = counts.all;
+    document.getElementById('fuxSumToday').textContent = counts.today;
+    document.getElementById('fuxSumUpcoming').textContent = counts.upcoming;
+    document.getElementById('fuxSumOverdue').textContent = counts.overdue;
+    document.querySelectorAll('#fuxTabs .fux-tab-n').forEach(function (el) { el.textContent = counts[el.getAttribute('data-n')]; });
+
+    var rows = fuxRows();
+    fuxRowsEl.innerHTML = rows.map(function (r) {
+      var lead = r.lead || {};
+      var st = FUX_STATUS[r.kind];
+      var purpose = fuxPurpose(lead);
+      var phone = String(lead.phone || '');
+      var dateCell = r.kind === 'completed'
+        ? '<div class="fux-date">' + fuxFormatDay(r.log.created_at) + '</div><div class="fux-muted">Completed</div>'
+        : '<div class="fux-date">' + fuxFormatDay(lead.follow_up_date) + '</div><div class="fux-muted fux-rel--' + st.cls + '">' + fuxRelative(lead.follow_up_date) + '</div>';
+      var noteText = r.kind === 'completed' ? r.log.notes : purpose.note;
+      var actions =
+        '<button type="button" class="fux-act" data-act="view" title="View customer details" aria-label="View customer details"><i class="ti ti-eye"></i></button>' +
+        (r.kind !== 'completed'
+          ? '<button type="button" class="fux-act" data-act="edit" title="Edit follow-up / log activity" aria-label="Edit follow-up"><i class="ti ti-pencil"></i></button>' +
+            '<button type="button" class="fux-act fux-act--done" data-act="complete" title="Mark as completed" aria-label="Mark as completed"><i class="ti ti-check"></i></button>'
+          : '');
+      return '<tr class="fux-row fux-row--' + st.cls + '" data-lead-id="' + escapeHtml(lead.id) + '">' +
+        '<td data-label="Customer"><div class="fux-name">' + escapeHtml(lead.name || '—') + '</div>' +
+          (lead.status ? '<div class="fux-muted">' + escapeHtml(STATUS_LABELS[lead.status] || lead.status) + '</div>' : '') + '</td>' +
+        '<td data-label="Phone">' + (phone ? '<a class="fux-phone" href="tel:' + escapeHtml(phone.replace(/[^0-9+]/g, '')) + '"><i class="ti ti-phone"></i>' + escapeHtml(formatPhone(phone)) + '</a>' : '—') + '</td>' +
+        '<td data-label="Follow-Up Date">' + dateCell + '</td>' +
+        '<td data-label="Purpose / Notes" class="fux-notes-cell">' +
+          (purpose.title ? '<div class="fux-purpose">' + escapeHtml(purpose.title) + '</div>' : '') +
+          (noteText ? '<div class="fux-note" title="' + escapeHtml(noteText) + '">' + escapeHtml(noteText) + '</div>' : (purpose.title ? '' : '<span class="fux-muted">—</span>')) + '</td>' +
+        '<td data-label="Assigned Staff"><span class="fux-muted">Not assigned</span></td>' +
+        '<td data-label="Status"><span class="fux-pill fux-pill--' + st.cls + '">' + st.label + '</span></td>' +
+        '<td data-label="Actions" class="fux-actions">' + actions + '</td>' +
+      '</tr>';
+    }).join('');
+
+    if (rows.length) {
+      fuxEmptyEl.style.display = 'none';
+    } else {
+      var searching = fuxSearchEl && fuxSearchEl.value.trim();
+      fuxEmptyEl.innerHTML = '<i class="ti ti-calendar-off"></i><div>' + (searching ? 'No follow-ups match your search.'
+        : fuxTab === 'completed' ? 'No completed follow-ups yet.' : 'No ' + (fuxTab === 'all' ? '' : fuxTab + ' ') + 'follow-ups.') + '</div>';
+      fuxEmptyEl.style.display = 'flex';
+    }
+  }
+
+  async function fuxLoad() {
+    fuxRowsEl.innerHTML = '';
+    fuxEmptyEl.innerHTML = '<i class="ti ti-loader"></i><div>Loading follow-ups…</div>';
+    fuxEmptyEl.style.display = 'flex';
+    try {
+      var res = await fetch('/api/leads/follow-ups?category=' + encodeURIComponent(currentCategory), { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      FUX.scheduled = data.scheduled || [];
+      FUX.completed = data.completed || [];
+      fuxRender();
+    } catch (err) {
+      console.error('Failed to load follow-ups:', err);
+      fuxEmptyEl.innerHTML = '<i class="ti ti-alert-circle"></i><div>Could not load follow-ups. Please try again.</div>';
+    }
+  }
+
+  function openFollowUpsList() {
+    fuxTab = 'all';
+    if (fuxSearchEl) fuxSearchEl.value = '';
+    document.querySelectorAll('#fuxTabs .fux-tab').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === 'all'); });
+    window.SW.openModal('followUpsListModal');
+    fuxLoad();
+  }
+
+  function fuxFindLead(id) {
+    id = Number(id);
+    var lead = FUX.scheduled.find(function (l) { return Number(l.id) === id; });
+    if (lead) return lead;
+    var log = FUX.completed.find(function (c) { return c.lead && Number(c.lead.id) === id; });
+    return log ? log.lead : null;
+  }
+
+  async function fuxComplete(lead, btn) {
+    if (fuxBusy) return;
+    if (!confirm('Mark the follow-up with ' + (lead.name || 'this lead') + ' (due ' + fuxFormatDay(lead.follow_up_date) + ') as completed?')) return;
+    fuxBusy = true;
+    if (btn) btn.disabled = true;
+    try {
+      var res = await fetch('/api/leads/' + lead.id + '/follow-ups/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!res.ok) {
+        var err = await res.json().catch(function () { return {}; });
+        throw new Error(err.message || 'Could not mark as completed');
+      }
+      if (window.SW && window.SW.showToast) window.SW.showToast('Follow-up marked as completed');
+      await Promise.all([fuxLoad(), loadLeads()]);
+    } catch (e) {
+      console.error(e);
+      alert(e.message || 'A connection error occurred.');
+      if (btn) btn.disabled = false;
+    } finally {
+      fuxBusy = false;
+    }
+  }
+
+  if (fuxCard) {
+    fuxCard.addEventListener('click', openFollowUpsList);
+    fuxCard.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFollowUpsList(); }
+    });
+  }
+  var fuxTabsEl = document.getElementById('fuxTabs');
+  if (fuxTabsEl) {
+    fuxTabsEl.addEventListener('click', function (e) {
+      var tab = e.target.closest('.fux-tab');
+      if (!tab) return;
+      fuxTab = tab.getAttribute('data-tab');
+      fuxTabsEl.querySelectorAll('.fux-tab').forEach(function (b) { b.classList.toggle('active', b === tab); });
+      fuxRender();
+    });
+  }
+  if (fuxSearchEl) fuxSearchEl.addEventListener('input', fuxRender);
+  if (fuxRowsEl) {
+    fuxRowsEl.addEventListener('click', function (e) {
+      var btn = e.target.closest('.fux-act');
+      if (!btn) return;
+      var lead = fuxFindLead(btn.closest('tr').getAttribute('data-lead-id'));
+      if (!lead) return;
+      var act = btn.getAttribute('data-act');
+      if (act === 'complete') { fuxComplete(lead, btn); return; }
+      window.SW.closeModal('followUpsListModal');
+      if (act === 'view') openEditModal(lead);
+      else if (act === 'edit') openFollowUpModal(lead);
+    });
+  }
+
+  // ---------- Estimation / Quote popup (calculator button on each lead card) ----------
+  // Layout of the estimate document follows the shop's GST estimate format (Vyapar style):
+  // company block + estimate no/date, "Estimate For", items with HSN/SAC, GST and amount,
+  // amount in words, description, amounts, HSN-wise CGST/SGST summary and signatory.
+  var estForm = document.getElementById('estimateForm');
+  var estItemsEl = document.getElementById('estItems');
+  var EST = { lead: null, items: [], products: null, settings: null };
+
+  // Document layout + GST maths live in estimate-doc.js (shared with the customer estimate page)
+  var ED = window.EstimateDoc;
+  var estRound = ED.round, estMoney = ED.money, estMoneyShort = ED.moneyShort, estDay = ED.day, estLine = ED.line;
+  function estDocHtml(lead, e, s, autoPrint) { return ED.html(lead, e, s, { autoPrint: autoPrint }); }
+
+  function estInDays(n) {
+    var d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  // company GST rate from Settings (CGST + SGST); used as the default for products and custom items
+  function estCompanyRate() {
+    var s = EST.settings || {};
+    return estRound((Number(s.cgst_rate) || 0) + (Number(s.sgst_rate) || 0));
+  }
+
+  function estTotals(items, discountValue) {
+    var subtotal = 0;
+    (items || EST.items).forEach(function (it) { subtotal += estLine(it).amount; });
+    subtotal = estRound(subtotal);
+    var raw = discountValue != null ? discountValue : document.getElementById('estDiscount').value;
+    var discount = Math.min(subtotal, Math.max(0, Number(raw) || 0));
+    return { subtotal: subtotal, discount: discount, total: estRound(subtotal - discount) };
+  }
+
+  function estRenderTotals() {
+    var t = estTotals();
+    document.getElementById('estSubtotal').textContent = estMoneyShort(t.subtotal);
+    document.getElementById('estTotal').textContent = estMoneyShort(t.total);
+  }
+
+  function estRenderItems() {
+    estItemsEl.innerHTML = EST.items.map(function (it, i) {
+      var tag = it.type === 'service' ? 'Service' : (it.type === 'product' ? 'Product' : 'Custom');
+      return '<tr data-i="' + i + '">' +
+        '<td data-label="Item"><div class="est-item-cell"><span class="est-tag est-tag--' + escapeHtml(it.type || 'custom') + '">' + tag + '</span>' +
+          '<input type="text" class="est-in-name" value="' + escapeHtml(it.name) + '" placeholder="Item name" aria-label="Item name"></div></td>' +
+        '<td data-label="HSN/ SAC"><input type="text" class="est-in-hsn" value="' + escapeHtml(it.hsn || '') + '" placeholder="—" aria-label="HSN or SAC code"></td>' +
+        '<td data-label="Qty"><input type="number" class="est-in-qty" min="1" step="1" value="' + escapeHtml(String(it.quantity)) + '" aria-label="Quantity"></td>' +
+        '<td data-label="Unit"><input type="text" class="est-in-unit" value="' + escapeHtml(it.unit || 'Nos') + '" aria-label="Unit"></td>' +
+        '<td data-label="Price (incl. GST)"><input type="number" class="est-in-price" min="0" step="0.01" value="' + escapeHtml(String(it.price)) + '" aria-label="Price including GST"></td>' +
+        '<td data-label="GST %"><input type="number" class="est-in-gst" min="0" max="100" step="0.5" value="' + escapeHtml(String(it.gst_rate || 0)) + '" aria-label="GST percent"></td>' +
+        '<td data-label="Amount" class="est-amt">' + estMoneyShort(estLine(it).amount) + '</td>' +
+        '<td class="est-del-cell"><button type="button" class="est-del" title="Remove item" aria-label="Remove item"><i class="ti ti-trash"></i></button></td>' +
+      '</tr>';
+    }).join('');
+    document.getElementById('estEmpty').style.display = EST.items.length ? 'none' : 'block';
+    estRenderTotals();
+  }
+
+  function estAddItem(item) {
+    // the same service/product again just bumps the quantity
+    var existing = item.type !== 'custom' && EST.items.find(function (it) { return it.type === item.type && it.name === item.name; });
+    if (existing) existing.quantity = (Number(existing.quantity) || 0) + 1;
+    else EST.items.push(item);
+    estRenderItems();
+  }
+  function estServiceItem(s) {
+    return { name: s.name, type: 'service', price: Number(s.price) || 0, quantity: 1, hsn: s.hsn_sac || '', unit: 'Nos',
+      gst_rate: s.gst_rate != null && s.gst_rate !== '' ? Number(s.gst_rate) : estCompanyRate() };
+  }
+  function estProductItem(p) {
+    return { name: p.name, type: 'product', price: Number(p.unit_cost) || 0, quantity: 1, hsn: p.hsn_sac || p.hsn_code || p.hsn || '',
+      unit: p.unit || 'Nos', gst_rate: estCompanyRate() };
+  }
+
+  async function estLoadPickers() {
+    var svcSel = document.getElementById('estAddService');
+    var prodSel = document.getElementById('estAddProduct');
+    if (!SERVICES || !SERVICES.length) await loadServicesList();
+    svcSel.innerHTML = '<option value="">+ Add service…</option>' + (SERVICES || []).map(function (s, i) {
+      return '<option value="' + i + '">' + escapeHtml(s.name) + (s.price ? ' — ' + estMoneyShort(s.price) : '') + '</option>';
+    }).join('');
+    if (EST.products === null) {
+      try {
+        var res = await fetch('/api/products', { headers: { 'Accept': 'application/json' } });
+        EST.products = res.ok ? (await res.json()).filter(function (p) { return p.active !== false; }) : [];
+      } catch (e) { EST.products = []; }
+    }
+    prodSel.innerHTML = '<option value="">+ Add product…</option>' + EST.products.map(function (p, i) {
+      return '<option value="' + i + '">' + escapeHtml(p.name) + ' — ' + estMoneyShort(p.unit_cost || 0) + '</option>';
+    }).join('');
+  }
+
+  async function estLoadSettings() {
+    if (EST.settings) return EST.settings;
+    try {
+      var res = await fetch('/api/settings', { headers: { 'Accept': 'application/json' } });
+      EST.settings = res.ok ? await res.json() : {};
+    } catch (e) { EST.settings = {}; }
+    return EST.settings;
+  }
+
+  function estShowTab(tab) {
+    document.querySelectorAll('#estimateModal .est-tab').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-est-tab') === tab); });
+    document.getElementById('estEditPane').style.display = tab === 'edit' ? '' : 'none';
+    document.getElementById('estPreviewPane').style.display = tab === 'preview' ? '' : 'none';
+    if (tab === 'preview') {
+      var frame = document.getElementById('estPreviewFrame');
+      frame.onload = function () { estFitPreview(frame); };
+      frame.srcdoc = estDocHtml(EST.lead, estDraft(), EST.settings || {}, false);
+    }
+  }
+
+  // The document has a fixed page width (like a PDF): shrink it to fit narrow screens instead of squeezing the layout
+  function estFitPreview(frame) {
+    var doc = frame && frame.contentDocument;
+    if (!doc || !doc.body) return;
+    doc.documentElement.style.zoom = '';
+    var pageWidth = doc.body.scrollWidth + 32; // body width + its 16px margins
+    var available = frame.clientWidth - 4;
+    var scale = Math.min(1, available / pageWidth);
+    doc.documentElement.style.zoom = scale < 1 ? String(scale) : '';
+  }
+  window.addEventListener('resize', function () {
+    var pane = document.getElementById('estPreviewPane');
+    if (pane && pane.style.display !== 'none') estFitPreview(document.getElementById('estPreviewFrame'));
+  });
+
+  async function openEstimateModal(lead) {
+    if (!lead || !estForm) return;
+    EST.lead = lead;
+    var saved = lead.estimate || null;
+    document.getElementById('estNumber').textContent = saved && saved.number ? saved.number : '';
+    document.getElementById('estLeadLine').textContent = [lead.name, formatPhone(lead.phone), [lead.vehicle, lead.vehicle_plate].filter(Boolean).join(' · ')].filter(Boolean).join('  ·  ');
+    document.getElementById('estDiscount').value = saved ? (saved.discount || 0) : 0;
+    document.getElementById('estNotes').value = saved && saved.notes ? saved.notes : '';
+    document.getElementById('estValidUntil').value = saved && saved.valid_until ? String(saved.valid_until).slice(0, 10) : estInDays(7);
+    document.getElementById('estSavedInfo').textContent = saved && saved.updated_at ? 'Last saved ' + estDay(saved.updated_at) : 'Not saved yet';
+
+    await Promise.all([estLoadSettings(), estLoadPickers()]);
+    if (saved && Array.isArray(saved.items) && saved.items.length) {
+      EST.items = saved.items.map(function (it) {
+        return { name: it.name, type: it.type || 'custom', price: Number(it.price) || 0, quantity: Number(it.quantity) || 1,
+          hsn: it.hsn || '', unit: it.unit || 'Nos', gst_rate: it.gst_rate != null ? Number(it.gst_rate) : estCompanyRate() };
+      });
+    } else {
+      // start from the service the customer asked about
+      EST.items = [];
+      if (lead.service_interested) {
+        var svc = (SERVICES || []).find(function (s) { return s.name === lead.service_interested; });
+        EST.items.push(svc ? estServiceItem(svc) : { name: lead.service_interested, type: 'custom', price: Number(lead.estimated_value) || 0, quantity: 1, hsn: '', unit: 'Nos', gst_rate: estCompanyRate() });
+      }
+    }
+    estRenderItems();
+    estShowTab('edit');
+    window.SW.openModal('estimateModal');
+  }
+
+  function estCollect() {
+    var t = estTotals();
+    return {
+      items: EST.items.map(function (it) {
+        return { name: String(it.name || '').trim(), type: it.type, price: Number(it.price) || 0, quantity: Number(it.quantity) || 1,
+          hsn: String(it.hsn || '').trim(), unit: String(it.unit || '').trim() || 'Nos', gst_rate: Number(it.gst_rate) || 0 };
+      }),
+      discount: t.discount,
+      notes: document.getElementById('estNotes').value.trim() || null,
+      valid_until: document.getElementById('estValidUntil').value || null
+    };
+  }
+  // what the preview shows: the current (possibly unsaved) form, with the saved number/date if there is one
+  function estDraft() {
+    var c = estCollect();
+    var t = estTotals();
+    var saved = (EST.lead && EST.lead.estimate) || {};
+    return Object.assign(c, { number: saved.number || 'Assigned on save', date: saved.date || estInDays(0), subtotal: t.subtotal, total: t.total });
+  }
+
+  // Saves the estimate on the lead (also sets Est. Value, and status to Quote Sent while the lead is still open)
+  async function estSave() {
+    var est = estCollect();
+    if (!est.items.length) { alert('Add at least one item to the estimate.'); return null; }
+    if (est.items.some(function (it) { return !it.name; })) { alert('Every item needs a name.'); return null; }
+    var body = { estimate: est };
+    if (['new', 'contacted', 'in_discussion'].indexOf(EST.lead.status || 'new') !== -1) body.status = 'quote_sent';
+    var res = await fetch('/api/leads/' + EST.lead.id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      var err = await res.json().catch(function () { return {}; });
+      throw new Error(err.message || 'Could not save the estimate.');
+    }
+    var updated = await res.json();
+    Object.assign(EST.lead, updated);
+    document.getElementById('estNumber').textContent = updated.estimate && updated.estimate.number ? updated.estimate.number : '';
+    document.getElementById('estSavedInfo').textContent = 'Saved just now';
+    loadLeads();
+    return updated;
+  }
+
+  // Shop's estimate message; the estimate PDF goes as a link (wa.me links can only carry text)
+  function estWhatsappText(lead) {
+    var e = lead.estimate || {};
+    var vehicle = [lead.vehicle, lead.vehicle_plate].filter(Boolean).join(' · ');
+    var pdfLink = e.share_token ? window.location.origin + '/estimate/' + e.share_token : '';
+    var lines = [
+      'Dear ' + (lead.name || 'Customer') + ',',
+      '',
+      'Greetings from Polish Panda Auto Hub! 🐼',
+      '',
+      'Please find attached the estimated quotation for your Vehicle' + (vehicle ? ' (' + vehicle + ')' : '') + '.'
+    ];
+    if (pdfLink) lines.push('', '*View & Download Estimate PDF:* ' + pdfLink);
+    lines.push(
+      '',
+      'We assure you of quality products, professional workmanship and premium care for your vehicle.',
+      '',
+      'Thank you for considering Polish Panda. We look forward to serving you!',
+      '',
+      '*POLISH PANDA AUTO HUB*',
+      'Premium Care. Protection That Lasts.'
+    );
+    return lines.join('\n');
+  }
+
+
+  if (estForm) {
+    document.querySelectorAll('#estimateModal .est-tab').forEach(function (b) {
+      b.addEventListener('click', function () { estShowTab(b.getAttribute('data-est-tab')); });
+    });
+    document.getElementById('estAddService').addEventListener('change', function () {
+      var s = (SERVICES || [])[Number(this.value)];
+      if (this.value !== '' && s) estAddItem(estServiceItem(s));
+      this.value = '';
+    });
+    document.getElementById('estAddProduct').addEventListener('change', function () {
+      var p = (EST.products || [])[Number(this.value)];
+      if (this.value !== '' && p) estAddItem(estProductItem(p));
+      this.value = '';
+    });
+    document.getElementById('estAddCustom').addEventListener('click', function () {
+      EST.items.push({ name: '', type: 'custom', price: 0, quantity: 1, hsn: '', unit: 'Nos', gst_rate: estCompanyRate() });
+      estRenderItems();
+      var names = estItemsEl.querySelectorAll('.est-in-name');
+      if (names.length) names[names.length - 1].focus();
+    });
+    document.getElementById('estDiscount').addEventListener('input', estRenderTotals);
+
+    // edits update the item list and totals without re-rendering (keeps the cursor where it is)
+    estItemsEl.addEventListener('input', function (e) {
+      var tr = e.target.closest('tr');
+      if (!tr) return;
+      var it = EST.items[Number(tr.getAttribute('data-i'))];
+      if (!it) return;
+      var c = e.target.classList;
+      if (c.contains('est-in-name')) it.name = e.target.value;
+      if (c.contains('est-in-hsn')) it.hsn = e.target.value;
+      if (c.contains('est-in-unit')) it.unit = e.target.value;
+      if (c.contains('est-in-qty')) it.quantity = Math.max(0, Number(e.target.value) || 0);
+      if (c.contains('est-in-price')) it.price = Math.max(0, Number(e.target.value) || 0);
+      if (c.contains('est-in-gst')) it.gst_rate = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+      tr.querySelector('.est-amt').textContent = estMoneyShort(estLine(it).amount);
+      estRenderTotals();
+    });
+    estItemsEl.addEventListener('click', function (e) {
+      var del = e.target.closest('.est-del');
+      if (!del) return;
+      EST.items.splice(Number(del.closest('tr').getAttribute('data-i')), 1);
+      estRenderItems();
+    });
+
+    var estBusy = false;
+    async function estRun(btn, after) {
+      if (estBusy) return;
+      estBusy = true;
+      // open the tab now (inside the click) so the browser doesn't block it as a pop-up
+      var win = after ? window.open('', '_blank') : null;
+      var original = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = 'Saving...';
+      try {
+        var lead = await estSave();
+        if (!lead) { if (win) win.close(); return; }
+        if (after) await after(lead, win);
+        else {
+          window.SW.closeModal('estimateModal');
+          if (window.SW.showToast) window.SW.showToast('Estimate saved · Est. Value ' + estMoneyShort(lead.estimate.total));
+        }
+      } catch (err) {
+        console.error(err);
+        if (win) win.close();
+        alert(err.message || 'A connection error occurred.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+        estBusy = false;
+      }
+    }
+
+    estForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      estRun(document.getElementById('estSaveBtn'));
+    });
+    document.getElementById('estWhatsappBtn').addEventListener('click', function () {
+      if (!EST.lead || !EST.lead.phone) { alert('This lead has no phone number.'); return; }
+      estRun(this, async function (lead, win) {
+        var settings = await estLoadSettings();
+        win.location.href = 'https://wa.me/' + cleanPhoneForWhatsApp(lead.phone) + '?text=' + encodeURIComponent(estWhatsappText(lead));
+        if (window.SW.showToast) window.SW.showToast('Estimate saved — opening WhatsApp');
+      });
+    });
+    document.getElementById('estPrintBtn').addEventListener('click', function () {
+      estRun(this, async function (lead, win) {
+        var settings = await estLoadSettings();
+        win.document.open();
+        win.document.write(estDocHtml(lead, lead.estimate, settings, true));
+        win.document.close();
+      });
+    });
+  }
+
   // Initial load
   renderTableHeader();
   loadServicesList();
   loadLeads();
+
+  // Opened from a job card's "New Enquiry" button: open Add Lead pre-filled with that customer and vehicle
+  (function openPrefilledEnquiry() {
+    var raw = localStorage.getItem('sw_new_lead_prefill');
+    if (!raw) return;
+    localStorage.removeItem('sw_new_lead_prefill');
+    var p;
+    try { p = JSON.parse(raw); } catch (e) { return; }
+    if (!p || (p.at && Date.now() - p.at > 5 * 60 * 1000)) return; // ignore stale hand-offs
+    if (currentCategory !== 'detailing') currentCategory = 'detailing';
+    openAddModal();
+    var set = function (id, value) { var el = document.getElementById(id); if (el && value) el.value = value; };
+    set('leadName', p.name);
+    set('leadPhone', p.phone);
+    set('leadVehicle', p.vehicle);
+    set('leadPlate', String(p.plate || '').toUpperCase());
+    set('leadSource', 'Walk-in');
+    set('leadNotes', p.notes);
+  })();
 })();

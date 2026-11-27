@@ -182,7 +182,7 @@ flex: auto;
    horizontal scrolling, so each row becomes a card laid out with CSS
    grid — no JS/markup changes needed, td order stays the same and is
    just re-placed into named grid areas. */
-@media (max-width: 992px) {
+@media all { /* job cards shown as cards at every screen size (was phones/tablets only) */
   #jcTableScroll{height:auto;overflow:visible;border:none;border-radius:0;background:transparent;}
   #jcTableScroll table, #jcTableScroll tbody{display:block;width:100%;}
   #jcTableScroll thead{display:none;}
@@ -259,7 +259,8 @@ flex: auto;
 .jc-toolbar .jc-btn-apply:hover{background:#e00100;}
 
 /* Table header: rounded dark bar */
-#jcTableScroll{margin:0 16px;border:1px solid #eef0f3;border-radius:12px;}
+
+
 #jcTableScroll thead th{background:#111418;color:#fff;font-size:11.5px;font-weight:700;letter-spacing:.03em;padding:16px 12px;border-bottom:none;white-space:nowrap;}
 #jcTableScroll thead tr th:first-child{border-top-left-radius:12px;}
 #jcTableScroll thead tr th:last-child{border-top-right-radius:12px;}
@@ -318,28 +319,7 @@ flex: auto;
 #jobcards .jc-toolbar .jc-field select:focus,#jobcards .jc-toolbar .jc-field input[type="date"]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(227,18,27,.12);outline:none;}
 #jobcards .jc-toolbar .jc-btn-apply{box-shadow:0 6px 14px -8px rgba(227,18,27,.8);}
 
-@media (min-width:993px){
-  #jcTableScroll{height:calc(100dvh - 330px - var(--shell-extra, 0px));margin:0 16px;border:1px solid #e6e8ec;border-bottom:none;border-radius:16px 16px 0 0;background:#fff;}
-  #jcTableScroll thead th{
-    background:#fafafb;color: #000 !important;
-  font-size: 14px;
-  font-weight: 900;text-transform:capitalize;letter-spacing:.06em;
-    padding:14px 14px;border-bottom:1px solid #eef0f3;
-  }
-  #jcTableScroll thead tr th:first-child{border-top-left-radius:16px;}
-  #jcTableScroll thead tr th:last-child{border-top-right-radius:16px;text-align:right;padding-right:20px;}
-  #jcTableRows tr[data-id] td{padding:14px;border-bottom:1px solid #f1f2f5;vertical-align:middle;transition:background-color .15s ease;}
-  #jcTableRows tr[data-id]:last-child td{border-bottom:none;}
-  #jcTableRows tr[data-id]:hover td{background:#fff8f8;}
-  #jcTableRows tr[data-id]:hover td:first-child{box-shadow:inset 3px 0 0 var(--accent);}
-  #jcTableRows tr[data-id] td:last-child{text-align:right;padding-right:20px;}
-  #jcTableRows tr[data-id] td:last-child .jc-actions{justify-content:flex-end;}
-  #jcTableRows .jc-td-sl{color:#98a2b3;}
-
-  /* footer bar joined to the table */
-  #jcScrollArea .table-pagination{margin:0 16px 16px;border:1px solid #e6e8ec;border-top:1px solid #eef0f3;border-radius:0 0 16px 16px;background:#fafafb;padding:10px 12px 10px 18px;}
-}
-@media (max-width:992px){
+@media all{
   #jcScrollArea .table-pagination{border:none;background:transparent;padding:14px 16px 16px;}
 }
 
@@ -371,21 +351,32 @@ flex: auto;
 #jcScrollArea{background:transparent;border:none;border-radius:0;box-shadow:none;overflow-y:auto;padding-bottom:15px;}
 #jobcards .jc-toolbar{padding:0 0 10px;}
 
-@media (min-width:993px){
-  #jcTableScroll{
-    height:auto;max-height:none;overflow-x:auto;overflow-y:visible;margin:0;
-    border:1px solid #e6e8ec;border-bottom:none;border-radius:16px 16px 0 0;background:#fff;
-    box-shadow:0 12px 28px -20px rgba(16,24,40,.35);
-  }
-  #jcTableScroll thead th{position:static;}
-  #jcScrollArea .table-pagination{
-    margin:0;border:1px solid #e6e8ec;border-top:1px solid #eef0f3;border-radius:0 0 16px 16px;
-    background:#fafafb;padding:10px 12px 10px 18px;box-shadow:0 12px 28px -20px rgba(16,24,40,.35);
-  }
-  #jcTableRows tr[data-id] td{padding:14px 16px;}
-  #jcTableRows tr[data-id] td:first-child{padding-left:16px;}
-}
-@media (max-width:992px){
+@media all{ /* job cards: same toolbar/pagination spacing at every width */
   #jobcards .jc-toolbar{padding:0 0 10px;}
   #jcScrollArea .table-pagination{padding:14px 0 0;}
 }
+
+/* Job cards: cards side by side on wider screens (one per row on phones), empty state spans the row */
+#jcTableScroll tbody#jcTableRows{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px;align-items:stretch;}
+#jcTableRows tr[data-id]{margin-bottom:0;}
+#jcTableRows tr.jc-empty-row,#jcTableRows tr:not([data-id]){display:block;grid-column:1 / -1;}
+#jcTableRows tr.jc-empty-row td{display:block;}
+@media (max-width:480px){#jcTableScroll tbody#jcTableRows{grid-template-columns:1fr;}}
+
+/* Job card alignment: equal-height cards with actions pinned to the bottom; bay / staff / time sized to content */
+#jcTableRows tr[data-id]{grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto auto auto auto 1fr auto;column-gap:16px;}
+#jcTableRows tr[data-id] td:nth-child(10){align-self:end;}
+#jcTableRows .jc-service-clamp{max-width:none;}
+#jcTableRows tr[data-id] td:nth-child(5),#jcTableRows tr[data-id] td:nth-child(6),#jcTableRows tr[data-id] td:nth-child(7){align-self:center;min-width:0;}
+#jcTableRows tr[data-id] td:nth-child(6) .jc-row-primary,#jcTableRows tr[data-id] td:nth-child(7) .jc-row-primary{display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0;}
+#jcTableRows tr[data-id] td:nth-child(6) .jc-row-primary{overflow:hidden;text-overflow:ellipsis;display:block;}
+#jcTableRows tr[data-id] td:nth-child(6) .jc-row-primary .ti{margin-right:6px;vertical-align:-2px;}
+
+/* Job card opened from a link (e.g. Queue "View Job Card"): brief highlight instead of a popup */
+#jcTableRows tr.jc-focus{box-shadow:0 0 0 3px rgba(227,18,27,.35),0 10px 24px -12px rgba(227,18,27,.45) !important;border-color:var(--accent) !important;transition:box-shadow .3s ease,border-color .3s ease;}
+
+/* Job card "New Enquiry" button (opens Add Lead pre-filled) */
+#jcTableRows .jc-enquiry-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 12px;border-radius:10px;
+  border:1px solid #f59e0b;background:#fffbeb;color:#b45309;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;flex:0 0 auto;}
+#jcTableRows .jc-enquiry-btn .ti{font-size:15px;color:inherit;}
+@media (max-width:480px){#jcTableRows .jc-enquiry-btn{flex:1 1 100%;order:5;}}
