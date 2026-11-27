@@ -105,6 +105,8 @@ Route::prefix('api')->group(function () {
     Route::delete('/customers/{id}', [CarwashApiController::class, 'deleteCustomer']);
 
     Route::get('/leads', [CarwashApiController::class, 'getLeads']);
+    Route::get('/leads/follow-ups', [CarwashApiController::class, 'getLeadFollowUpsOverview']);
+    Route::post('/leads/{id}/follow-ups/complete', [CarwashApiController::class, 'completeLeadFollowUp']);
     Route::post('/leads', [CarwashApiController::class, 'createLead']);
     Route::put('/leads/{id}', [CarwashApiController::class, 'updateLead']);
     Route::delete('/leads/{id}', [CarwashApiController::class, 'deleteLead']);
@@ -169,6 +171,36 @@ Route::prefix('api')->group(function () {
     Route::get('/settings', [CarwashApiController::class, 'getSettings']);
     Route::post('/settings', [CarwashApiController::class, 'saveSettings']);
 });
+
+// Customer-facing estimate (link sent on WhatsApp from the Leads Estimation popup).
+// Found only by the estimate's random share token, never by lead id.
+Route::get('/estimate/{token}', function ($token) {
+    abort_unless(is_string($token) && strlen($token) >= 32, 404);
+    $lead = \App\Models\Lead::where('estimate->share_token', $token)->first();
+    abort_unless($lead && is_array($lead->estimate), 404);
+
+    $settings = \App\Models\CompanySetting::where('user_id', $lead->user_id)->first();
+    $company = [
+        'company_name' => $settings->company_name ?? null,
+        'company_address' => $settings->company_address ?? null,
+        'company_phone' => $settings->company_phone ?? null,
+        'company_email' => $settings->company_email ?? null,
+        'company_gstin' => $settings->company_gstin ?? null,
+        'company_logo_url' => !empty($settings?->company_logo) ? asset($settings->company_logo) : null,
+        'signature_url' => !empty($settings?->signature) ? asset($settings->signature) : null,
+        'seal_url' => !empty($settings?->seal) ? asset($settings->seal) : null,
+    ];
+    // only what the document shows — no internal lead fields
+    $customer = [
+        'name' => $lead->name,
+        'phone' => $lead->phone,
+        'vehicle' => $lead->vehicle,
+        'vehicle_plate' => $lead->vehicle_plate,
+    ];
+    $estimate = collect($lead->estimate)->except('share_token')->all();
+
+    return view('estimate-view', compact('customer', 'estimate', 'company'));
+})->name('estimate.view');
 
 Route::get('/invoice/{id}/view', function ($id) {
     $invoice = \App\Models\Invoice::find($id);

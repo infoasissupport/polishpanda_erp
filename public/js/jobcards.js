@@ -76,18 +76,23 @@
     return null;
   }
 
+  // "27 Nov 2026, 3:19 PM"
+  function formatDateTime12(date) {
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return date.getDate() + ' ' + months[date.getMonth()] + ' ' + date.getFullYear() + ', ' + formatTime12(date);
+  }
   function jobCardSubLabel(card) {
     if (card.stage === 'completed') {
       var completedDate = card.completed_at_at ? new Date(card.completed_at_at) : null;
-      var t = (completedDate && !isNaN(completedDate.getTime())) ? formatTime12(completedDate) : (card.signedOffTime || '');
+      var t = (completedDate && !isNaN(completedDate.getTime())) ? formatDateTime12(completedDate) : (card.signedOffTime || '');
       return 'Completed' + (t ? ' ' + t : '');
     }
     if (card.stage === 'inprogress') {
       var startDate = getJobStartDate(card);
-      return 'Started' + (startDate ? ' ' + formatTime12(startDate) : '');
+      return 'Started' + (startDate ? ' ' + formatDateTime12(startDate) : '');
     }
     var createdDate = card.created_at ? new Date(card.created_at) : null;
-    return 'Created' + ((createdDate && !isNaN(createdDate.getTime())) ? ' ' + formatTime12(createdDate) : '');
+    return 'Created' + ((createdDate && !isNaN(createdDate.getTime())) ? ' ' + formatDateTime12(createdDate) : '');
   }
 
   function assignedToLabel(card) {
@@ -164,6 +169,9 @@
       '<td class="jc-td-note">' + noteCellHtml(card) + '</td>' +
       '<td><span class="status-pill" style="background:' + color.bg + ';color:' + color.text + ';">' + STAGE_LABEL[card.stage] + '</span>' + (card.stage === 'completed' ? paymentBadgeHtml(card) : '') + '</td>' +
       '<td><div class="jc-actions">' + rowActionHtml(card, color) +
+        (card.stage !== 'cancelled'
+          ? '<button type="button" class="btn jc-enquiry-btn" data-id="' + escapeHtml(card.id) + '" title="New enquiry for this customer (opens Add Lead, pre-filled)"><i class="ti ti-user-plus"></i>New Enquiry</button>'
+          : '') +
         (card.stage === 'assigned' ?
           '<button type="button" class="jc-edit-btn" data-id="' + escapeHtml(card.id) + '" title="Edit job card" aria-label="Edit job card">' +
             '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
@@ -267,6 +275,26 @@
       return;
     }
 
+
+    // "New Enquiry": open Add Lead on the Leads page, pre-filled with this job card's customer and vehicle
+    var enquiryBtn = e.target.closest('.jc-enquiry-btn');
+    if (enquiryBtn) {
+      e.stopPropagation();
+      var enqCard = findCard(enquiryBtn.getAttribute('data-id'));
+      if (!enqCard) return;
+      // job card vehicle is stored as "PLATE (Model)"
+      var vm = String(enqCard.vehicle || '').match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+      localStorage.setItem('sw_new_lead_prefill', JSON.stringify({
+        name: enqCard.customer || '',
+        phone: enqCard.phone || '',
+        vehicle: vm ? vm[2] : '',
+        plate: vm ? vm[1] : (enqCard.vehicle || ''),
+        notes: 'Enquiry from job card #' + enqCard.id + (enqCard.service ? ' (current service: ' + enqCard.service + ')' : '') + '.',
+        at: Date.now()
+      }));
+      window.location.href = '/leads';
+      return;
+    }
 
     var editBtn = e.target.closest('.jc-edit-btn');
     if (editBtn) {
@@ -1044,6 +1072,25 @@
     });
   }
 
+  // Scroll the job card into view and briefly highlight it; switches to its page if it is not on the current one
+  function focusJobCard(id) {
+    var selector = 'tr[data-id="' + (window.CSS && CSS.escape ? CSS.escape(String(id)) : String(id)) + '"]';
+    var row = tableRows && tableRows.querySelector(selector);
+    if (!row && tableRows) {
+      var list = applyFilters(JOBCARDS);
+      var idx = list.findIndex(function (c) { return String(c.id) === String(id); });
+      if (idx !== -1) {
+        currentPage = Math.floor(idx / PAGE_SIZE) + 1;
+        renderTable();
+        row = tableRows.querySelector(selector);
+      }
+    }
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('jc-focus');
+    setTimeout(function () { row.classList.remove('jc-focus'); }, 2600);
+  }
+
   var initialUrlCardChecked = false;
   function checkUrlForJobCard() {
     if (initialUrlCardChecked) return;
@@ -1053,7 +1100,7 @@
       var card = findCard(targetId);
       if (card) {
         initialUrlCardChecked = true;
-        openDetail(card.id);
+        focusJobCard(card.id); // no popup: just show the card (e.g. from Queue "View Job Card")
       }
     }
   }

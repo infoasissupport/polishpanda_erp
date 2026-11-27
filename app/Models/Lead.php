@@ -17,6 +17,7 @@ class Lead extends Model
         'return_date' => 'date',
         'insurance_taken' => 'boolean',
         'passengers_count' => 'integer',
+        'estimate' => 'array',
     ];
 
     public function user()

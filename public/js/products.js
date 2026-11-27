@@ -74,8 +74,7 @@
     var hsn = prod.hsn_sac || prod.hsn_code || '';
 
     var metaHtml = '<span><i class="ti ti-box"></i>Stock: ' + stock + (unit ? ' ' + escapeHtml(unit) : '') + '</span>' +
-                   (hsn ? '<span><i class="ti ti-file-barcode"></i>HSN: ' + escapeHtml(hsn) + '</span>' : '') +
-                   '<span class="service-status ' + (isActive ? 'active' : 'inactive') + '">' + (isActive ? 'Active' : 'Inactive') + '</span>';
+                   (hsn ? '<span><i class="ti ti-file-barcode"></i>HSN: ' + escapeHtml(hsn) + '</span>' : '');
 
     var actionsHtml = '<div class="service-actions">' +
         '<button type="button" class="btn service-edit-btn" data-action="edit" data-id="' + prod.id + '">' +
@@ -88,7 +87,8 @@
     return (
       '<div class="service-card" data-id="' + prod.id + '">' +
         '<div class="service-card-top">' +
-          '<div class="service-icon svc-badge-' + theme.color + '"><i class="ti ' + theme.icon + '"></i></div>' +
+          // status badge where the product icon used to be
+          '<span class="service-status service-status--top ' + (isActive ? 'active' : 'inactive') + '">' + (isActive ? 'Active' : 'Inactive') + '</span>' +
           '<div class="service-price">' + formatPrice(price) + '</div>' +
         '</div>' +
         '<div class="service-name-row">' +

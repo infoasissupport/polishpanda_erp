@@ -31,17 +31,17 @@
     </div>
     <div class="q-stat q-stat--blue">
       <span class="q-stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/></svg></span>
-      <div><div class="q-stat-label">Free Bays</div><div class="q-stat-value" id="qStatFree">—</div><div class="q-stat-sub">Ready for the next car</div></div>
+      <div><div class="q-stat-label">Free Bays</div><div class="q-stat-value" id="qStatFree">—</div><div class="q-stat-sub">Ready for the next works</div></div>
     </div>
     <div class="q-stat q-stat--red">
       <span class="q-stat-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/></svg></span>
-      <div><div class="q-stat-label">Completed Today</div><div class="q-stat-value" id="qStatCompleted">—</div><div class="q-stat-sub">Finished washes</div></div>
+      <div><div class="q-stat-label">Completed Today</div><div class="q-stat-value" id="qStatCompleted">—</div><div class="q-stat-sub">Finished works</div></div>
     </div>
   </div>
 
   <div class="card q-section" id="washBays">
       <div class="q-section-head">
-        <span class="q-section-title"><span class="q-section-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V9l9-5l9 5v12"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg></span>Wash Bays</span>
+        <span class="q-section-title"><span class="q-section-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V9l9-5l9 5v12"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg></span>Bays</span>
         <div class="q-legend">
           <span class="q-legend-item"><span class="q-dot q-dot--washing"></span>Washing</span>
           <span class="q-legend-item"><span class="q-dot q-dot--starting"></span>Starting</span>
@@ -67,7 +67,7 @@
             <th>Vehicle</th>
             <th>Customer</th>
             <th>Service</th>
-            <th>Arrival Time</th>
+            <th>Arrival</th>
             <th>Wait Time</th>
             <th>Action</th>
           </tr>
@@ -86,16 +86,16 @@
 
   <div class="card q-section" id="completed">
     <div class="card-title q-section-head" style="flex-wrap:wrap;gap:10px;">
-      <span class="q-section-title"><span class="q-section-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/></svg></span><span id="completedTitleText">Today Completed Wash</span>
-      <span class="tag" id="completedCountBadge" style="background:#E7F7EE;color:#166534;">0 washes</span></span>
+      <span class="q-section-title"><span class="q-section-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/></svg></span><span id="completedTitleText">Today Completed Works</span>
+      <span class="tag" id="completedCountBadge" style="background:#E7F7EE;color:#166534;">0 works</span></span>
       <div class="styleFleMain" >
         <div class="toolbar" style="background:none;border:0;padding:0;">
-          <button type="button" class="chip cw-tab active" data-completed-tab="today" aria-pressed="true"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></svg><span>Today Completed Wash</span></button>
-          <button type="button" class="chip cw-tab" data-completed-tab="total" aria-pressed="false">Total Completed Wash</button>
+          <button type="button" class="chip cw-tab active" data-completed-tab="today" aria-pressed="true"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></svg><span>Today Completed Works</span></button>
+          <button type="button" class="chip cw-tab" data-completed-tab="total" aria-pressed="false">Total Completed Works</button>
         </div>
         <div class="cw-search">
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 14L11.1 11.1M12.6667 7.33333C12.6667 10.2789 10.2789 12.6667 7.33333 12.6667C4.38781 12.6667 2 10.2789 2 7.33333C2 4.38781 4.38781 2 7.33333 2C10.2789 2 12.6667 4.38781 12.6667 7.33333Z" stroke="#172033" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-          <input type="text" id="completedSearchInput" placeholder="Search Vehicle, Customer, Service" aria-label="Search completed washes">
+          <input type="text" id="completedSearchInput" placeholder="Search Vehicle, Customer, Service" aria-label="Search completed works">
         </div>
       </div>
     </div>

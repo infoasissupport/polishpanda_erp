@@ -593,3 +593,114 @@ section#staff.view{padding:0 !important;}
 @media (max-width:640px){
   #staff .stf-table-scroll tbody{grid-template-columns:1fr;}
 }
+
+/* New Attendance popup (one staff member) */
+.mark-att-staff{padding:10px 12px;margin-bottom:0px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;}
+.mark-att-name{font-weight:700;color:#101828;font-size:15px;}
+.mark-att-meta{font-size:12.5px;color:#667085;margin-top:2px;}
+.mark-att-status{display:flex;flex-wrap:wrap;}
+
+/* ---------- Daily Attendance popup: rearranged staff rows ---------- */
+#attendanceModal .attendance-row{flex-direction:column;align-items:stretch;gap:12px;padding:14px 16px;}
+#attendanceModal .att-row-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+#attendanceModal .att-row-who{display:flex;align-items:center;gap:12px;min-width:0;}
+#attendanceModal .att-avatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
+  background:#fdecec;color:var(--accent,#e3121b);font-weight:700;font-size:16px;}
+#attendanceModal .attendance-staff-name{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.01em;}
+#attendanceModal .attendance-staff-meta{font-size:12.5px;color:#667085;}
+#attendanceModal .attendance-segmented{flex-shrink:0;}
+#attendanceModal .attendance-segmented label{padding:7px 14px;font-size:13px;}
+
+#attendanceModal .attendance-time-wrap{grid-template-columns:1fr 1fr;gap:12px;padding-top:12px;border-top:1px dashed #e5e7eb;}
+#attendanceModal .att-time-field{display:flex;flex-direction:column;gap:5px;margin:0;cursor:default;}
+#attendanceModal .att-time-label{font-size:11.5px;font-weight:600;color:#667085;text-transform:uppercase;letter-spacing:.04em;}
+#attendanceModal .att-time-box{display:flex;align-items:center;gap:6px;height:40px;padding:0 6px 0 10px;
+  border:1px solid #d0d5dd;border-radius:8px;background:#fff;transition:border-color .15s ease,box-shadow .15s ease;}
+#attendanceModal .att-time-box:focus-within{border-color:var(--accent,#e3121b);box-shadow:0 0 0 3px rgba(227,18,27,.12);}
+#attendanceModal .att-time-box input[type="time"]{flex:1;min-width:0;height:100%;border:0;outline:0;padding:0;background:transparent;
+  font-size:14px;color:#101828;box-shadow:none;}
+#attendanceModal .btn-checkout-now{flex-shrink:0;height:28px;padding:0 10px;border:1px solid #d0d5dd;border-radius:6px;
+  background:#f8fafc;color:#344054;font-size:12px;font-weight:600;cursor:pointer;}
+#attendanceModal .btn-checkout-now:hover{border-color:var(--accent,#e3121b);color:var(--accent,#e3121b);}
+
+@media (max-width:520px){
+  #attendanceModal .att-row-top{flex-direction:column;align-items:stretch;}
+  #attendanceModal .attendance-segmented{display:grid;grid-template-columns:repeat(3,1fr);}
+  #attendanceModal .attendance-time-wrap{grid-template-columns:1fr;}
+}
+
+/* ---------- Birthday Today KPI card ---------- */
+.stf-badge-pink{background:#FDF2F8;color:#DB2777;}
+#staff .stf-stat-card:has(.stf-badge-pink){--q-ink:#e11d48;--q-tile:#ffe4ec;--q-tint:#fff0f5;}
+#staff .stf-stat-birthday .stf-stat-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+#staff .stf-stat-birthday.has-birthday{border-color:#fbcfe8;background:linear-gradient(135deg,#fff 0%,#fff1f6 60%,#ffe4ec 100%);}
+#staff .stf-stat-birthday.has-birthday .stf-stat-value{color:#e11d48;}
+.emp-birthday-today{color:#e11d48;font-weight:600;}
+/* five KPI cards: one row on wide screens */
+.stf-stats-grid:has(.stf-stat-birthday.has-birthday){grid-template-columns:repeat(5,minmax(0,1fr));}
+@media(max-width:1300px){.stf-stats-grid:has(.stf-stat-birthday.has-birthday){grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:1100px){.stf-stats-grid:has(.stf-stat-birthday.has-birthday){grid-template-columns:repeat(2,minmax(0,1fr));}}
+
+/* ---------- Birthday card: draw attention when someone is celebrating ---------- */
+#staff .stf-stat-birthday{position:relative;overflow:hidden;}
+#staff .stf-stat-birthday.has-birthday{
+  border-color:#f9a8d4 !important;
+  animation:bdayGlow 2.4s ease-in-out infinite;
+}
+@keyframes bdayGlow{
+  0%,100%{box-shadow:0 0 0 0 rgba(225,29,72,.28),0 10px 24px -14px rgba(225,29,72,.45);}
+  50%{box-shadow:0 0 0 6px rgba(225,29,72,0),0 14px 30px -12px rgba(225,29,72,.55);}
+}
+/* cake icon wiggles */
+#staff .stf-stat-birthday.has-birthday .stf-stat-icon{animation:bdayWiggle 2.4s ease-in-out infinite;transform-origin:50% 90%;}
+@keyframes bdayWiggle{
+  0%,60%,100%{transform:rotate(0) scale(1);}
+  66%{transform:rotate(-10deg) scale(1.08);}
+  72%{transform:rotate(9deg) scale(1.08);}
+  78%{transform:rotate(-6deg) scale(1.04);}
+  84%{transform:rotate(3deg) scale(1.02);}
+}
+/* confetti dots drifting in the top-right corner */
+#staff .stf-stat-birthday.has-birthday::before{
+  content:"";position:absolute;top:-10px;right:-6px;width:90px;height:80px;pointer-events:none;
+  background:
+    radial-gradient(circle,#f43f5e 2.5px,transparent 3px) 10px 18px/30px 30px,
+    radial-gradient(circle,#f59e0b 2px,transparent 2.5px) 22px 6px/26px 26px,
+    radial-gradient(circle,#8b5cf6 2px,transparent 2.5px) 4px 30px/34px 34px,
+    radial-gradient(circle,#10b981 2px,transparent 2.5px) 30px 24px/28px 28px;
+  opacity:.75;animation:bdayConfetti 3.2s linear infinite;
+}
+@keyframes bdayConfetti{
+  0%{transform:translateY(-6px);opacity:0;}
+  15%{opacity:.8;}
+  85%{opacity:.8;}
+  100%{transform:translateY(22px);opacity:0;}
+}
+/* "Wish them!" tag */
+#staff .stf-stat-birthday.has-birthday::after{
+  content:"🎉 Wish them!";position:absolute;right:10px;bottom:10px;
+  padding:3px 9px;border-radius:999px;background:#e11d48;color:#fff;
+  font-size:11px;font-weight:700;letter-spacing:.02em;box-shadow:0 4px 10px -4px rgba(225,29,72,.7);
+  animation:bdayPop 2.4s ease-in-out infinite;
+}
+@keyframes bdayPop{0%,100%{transform:scale(1);}50%{transform:scale(1.07);}}
+#staff .stf-stat-birthday.has-birthday .stf-stat-body{position:relative;z-index:1;padding-bottom:18px;}
+
+@media (prefers-reduced-motion:reduce){
+  #staff .stf-stat-birthday.has-birthday,
+  #staff .stf-stat-birthday.has-birthday .stf-stat-icon,
+  #staff .stf-stat-birthday.has-birthday::before,
+  #staff .stf-stat-birthday.has-birthday::after{animation:none;}
+}
+
+/* Birthday card only shows when someone is celebrating today (also hidden until staff data loads) */
+#staff .stf-stat-birthday:not(.has-birthday){display:none;}
+.emp-detail-row svg{height:15px;}
+.emp-birthday-today svg{color:#e11d48;}
+
+/* Staff form: custom shift start / end times (shown when Shift = Custom…) */
+.stf-shift-custom{align-items:flex-end;gap:8px;margin-top:8px;}
+.stf-shift-time{flex:1;display:flex;flex-direction:column;gap:4px;margin:0;min-width:0;}
+.stf-shift-time span{font-size:11.5px;font-weight:600;color:#667085;}
+.stf-shift-time input{width:100%;}
+.stf-shift-sep{padding-bottom:10px;color:#98a2b3;font-weight:600;}

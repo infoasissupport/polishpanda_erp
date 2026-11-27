@@ -226,3 +226,12 @@
 }
 /* services/products: the pattern sits on the whole toolbar, not the small title cell inside it */
 .svc-toolbar .view-header::before{content:none !important;display:none !important;}
+
+/* Mobile/tablet menu: fit the *visible* screen (100vh is taller than it on phones) and let the menu list
+   shrink and scroll, so the last items (Branches, Settings) are always reachable */
+@media (max-width:1199px){
+  .sidebar{height:100vh !important;height:100dvh !important;max-height:100dvh;}
+  .sidebar-head{flex-shrink:0;}
+  .sidebar-menu{flex:1 1 auto;min-height:0;overflow-y:auto !important;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+    padding-bottom:calc(28px + env(safe-area-inset-bottom, 0px)) !important;}
+}

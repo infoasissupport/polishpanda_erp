@@ -641,7 +641,9 @@
 
     var pv = parseInvoiceVehicle(inv.vehicle);
     document.getElementById('previewCustomerName').textContent = inv.customer || '—';
+    document.getElementById('previewCustomerName').title = inv.customer || '';
     document.getElementById('previewVehiclePlate').textContent = pv.number !== '—' ? pv.number : (pv.model !== '—' ? pv.model : '—');
+    document.getElementById('previewVehiclePlate').title = [pv.number, pv.model].filter(function (v) { return v && v !== '—'; }).join(' · ');
     document.getElementById('previewVehicleModel').textContent = pv.number !== '—' && pv.model !== '—' ? pv.model : 'Vehicle';
 
     tableBody.querySelectorAll('tr').forEach(function (row, i) {
@@ -662,12 +664,6 @@
     // Service shows its full price; the products listed under it are included in this amount
     document.getElementById('previewAmount').textContent = formatMoney(t.serviceTotal);
     document.getElementById('previewTaxable').textContent = formatMoney(t.taxableAmount);
-
-    var gstBadge = document.getElementById('previewGstBadge');
-    if (gstBadge) {
-      gstBadge.textContent = 'GST ' + taxRate + '%';
-      gstBadge.style.display = taxRate > 0 ? '' : 'none';
-    }
 
     var gstRow = document.getElementById('previewGstRow');
     var cgstRow = document.getElementById('previewCgstRow');

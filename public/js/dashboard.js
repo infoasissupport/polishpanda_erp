@@ -416,8 +416,9 @@
 
 (function () {
   // KPIs, live queue and panels load even if the chart library is unavailable; only the chart needs Highcharts
+  // The revenue chart panel was removed from the dashboard; without it only the chart drawing is skipped
+  // (an early return here would also stop the KPI cards and Live Queue below from loading).
   var container = document.getElementById('revenueChart');
-  if (!container) return;
 
   function themeColor(varName) {
     return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
@@ -449,7 +450,7 @@
   function renderChart(categories, dataSeries) {
     latestCategories = categories;
     latestData = dataSeries;
-    if (!window.Highcharts) return;
+    if (!container || !window.Highcharts) return;
     // brand red bars, fading to a darker red at the base
     var barColor = { linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 }, stops: [[0, '#ff2d2d'], [1, '#d10f17']] };
     var formattedData = dataSeries.map(function (value) { return { y: value, color: barColor }; });
@@ -605,6 +606,23 @@
     });
   }
 
+  var QUEUE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // "2026-11-27" -> "27 Nov 2026" (parsed as a plain date so the timezone can't shift the day)
+  function formatQueueDay(ymd) {
+    var p = String(ymd).split('-');
+    if (p.length !== 3) return ymd;
+    return parseInt(p[2], 10) + ' ' + QUEUE_MONTHS[parseInt(p[1], 10) - 1] + ' ' + p[0];
+  }
+  // timestamp -> "27 Nov 2026, 10:30 AM"
+  function formatQueueDateTime(value) {
+    var d = value ? new Date(value) : null;
+    if (!d || isNaN(d.getTime())) return '';
+    var h = d.getHours(), ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return d.getDate() + ' ' + QUEUE_MONTHS[d.getMonth()] + ' ' + d.getFullYear() + ', ' +
+      h + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + ampm;
+  }
+
   async function loadLiveQueue() {
     var queueContainer = document.getElementById('dashboardQueueRows');
     if (!queueContainer) return;
@@ -612,43 +630,53 @@
     try {
       var jcRes = await fetch('/api/jobcards');
       var bkRes = await fetch('/api/bookings');
+      var emptyEl = document.getElementById('dashQueueEmpty');
       if (!jcRes.ok || !bkRes.ok) {
-        var dashQueueBody = document.getElementById('dashQueueBody');
-        var dashActiveBody = document.getElementById('dashActiveBody');
-        if (dashQueueBody) dashQueueBody.innerHTML = '<tr><td colspan="4" style="color:red;text-align:center;">Failed to load data (Database down?)</td></tr>';
-        if (dashActiveBody) dashActiveBody.innerHTML = '<tr><td colspan="4" style="color:red;text-align:center;">Failed to load data (Database down?)</td></tr>';
+        if (emptyEl) emptyEl.style.display = 'none';
+        queueContainer.innerHTML = '<div class="dash-queue-error">Failed to load data (Database down?)</div>';
         return;
       }
 
       var jobcards = await jcRes.json();
       var bookings = await bkRes.json();
 
-      // Queue rows: waiting bookings first, then job cards starting, then washing
+      // Queue cards: waiting bookings first, then job cards starting, then washing
       var rows = [];
       bookings.forEach(function (b) {
         if (b.status !== 'waiting' && b.status !== 'confirmed') return;
-        rows.push({ order: 0, vehicle: [b.vehicle_plate, b.vehicle].filter(Boolean).join(' · '), customer: b.customer,
+        var bookingDay = b.booking_date ? String(b.booking_date).slice(0, 10) : '';
+        rows.push({ order: 0, name: b.vehicle, plate: b.vehicle_plate, bay: b.bay, customer: b.customer,
+          date: bookingDay ? formatQueueDay(bookingDay) + (b.time_label ? ', ' + b.time_label : '') : formatQueueDateTime(b.created_at),
           service: b.service, since: b.created_at, status: 'Waiting', cls: 'waiting' });
       });
       jobcards.forEach(function (card) {
         if (card.stage === 'completed' || card.stage === 'cancelled') return;
         var washing = card.stage === 'inprogress';
-        rows.push({ order: washing ? 2 : 1, vehicle: card.vehicle, customer: card.customer, service: card.service,
+        // job card vehicle is stored as "PLATE (Vehicle name)"
+        var m = String(card.vehicle || '').match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+        rows.push({ order: washing ? 2 : 1, name: m ? m[2] : '', plate: m ? m[1] : card.vehicle, bay: card.bay,
+          customer: card.customer, date: formatQueueDateTime(card.created_at), service: card.service,
           since: card.started_at_at || card.created_at, status: washing ? 'Washing' : 'Starting', cls: washing ? 'washing' : 'starting' });
       });
       rows.sort(function (a, b) { return a.order - b.order; });
 
-      var emptyEl = document.getElementById('dashQueueEmpty');
+      var carIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17H3.5a.5.5 0 0 1-.5-.5V13l2-5h11l3 5h1.5a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5H19"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6M5 13h14"/></svg>';
+
+      var calIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M8 2.5v4M16 2.5v4M3 10h18"/></svg>';
+
       if (emptyEl) emptyEl.style.display = rows.length ? 'none' : '';
-      queueContainer.innerHTML = rows.map(function (r, i) {
-        return '<tr>' +
-          '<td>' + (i + 1) + '</td>' +
-          '<td class="dash-td-strong">' + escapeHtml(r.vehicle || '—') + '</td>' +
-          '<td>' + escapeHtml(r.customer || '—') + '</td>' +
-          '<td>' + escapeHtml(r.service || '—') + '</td>' +
-          '<td>' + waitingTime(r.since) + '</td>' +
-          '<td><span class="dash-pill dash-pill--' + r.cls + '">' + r.status + '</span></td>' +
-        '</tr>';
+      queueContainer.innerHTML = rows.map(function (r) {
+        var tip = [r.service, r.since ? 'Wait: ' + waitingTime(r.since) : ''].filter(Boolean).join(' · ');
+        return '<div class="dash-qcard dash-qcard--' + r.cls + '"' + (tip ? ' title="' + escapeHtml(tip) + '"' : '') + '>' +
+          '<span class="dash-qcard-icon">' + carIcon + '</span>' +
+          '<div class="dash-qcard-info">' +
+            '<div class="dash-qcard-title">' + escapeHtml(r.name || r.plate || 'Vehicle') + '</div>' +
+            '<div class="dash-qcard-line">' + escapeHtml([r.name ? r.plate : '', r.bay].filter(Boolean).join(' · ') || '—') + '</div>' +
+            '<div class="dash-qcard-line">' + escapeHtml(r.customer || '—') + '</div>' +
+            (r.date ? '<div class="dash-qcard-line dash-qcard-date">' + calIcon + escapeHtml(r.date) + '</div>' : '') +
+          '</div>' +
+          '<span class="dash-qcard-pill">' + r.status + '</span>' +
+        '</div>';
       }).join('');
 
     } catch (err) {
@@ -751,11 +779,6 @@
     } catch(e) {}
   }
 
-  var nbCustomerInput = document.getElementById('nbCustomer');
-  var nbPhoneInput = document.getElementById('nbPhone');
-  var nbCustomerDropdown = document.getElementById('nbCustomerDropdown');
-  var nbPhoneDropdown = document.getElementById('nbPhoneDropdown');
-
   function getMatches(query) {
     if (!query) return [];
     var q = query.toLowerCase();
@@ -774,7 +797,10 @@
     return matches.slice(0, 10);
   }
 
-  function renderDropdown(dropdown, matches, inputEl) {
+  // prefix = id prefix of the form fields: 'nb' (New booking) or 'np' (New Product)
+  function renderDropdown(dropdown, matches, prefix) {
+    var nbCustomerInput = document.getElementById(prefix + 'Customer');
+    var nbPhoneInput = document.getElementById(prefix + 'Phone');
     if (matches.length === 0) {
       dropdown.style.display = 'none';
       return;
@@ -795,9 +821,9 @@
         if (nbCustomerInput) nbCustomerInput.value = m.customer.name || '';
         if (nbPhoneInput) nbPhoneInput.value = m.customer.phone || '';
         if (m.vehicle) {
-          var nbVehicleInput = document.getElementById('nbVehicle');
-          var nbVehiclePlateInput = document.getElementById('nbVehiclePlate');
-          var nbVehicleTypeInput = document.getElementById('nbVehicleType');
+          var nbVehicleInput = document.getElementById(prefix + 'Vehicle');
+          var nbVehiclePlateInput = document.getElementById(prefix + 'VehiclePlate');
+          var nbVehicleTypeInput = document.getElementById(prefix + 'VehicleType');
           
           if (nbVehicleInput) nbVehicleInput.value = m.vehicle.brand || '';
           if (nbVehiclePlateInput) nbVehiclePlateInput.value = m.vehicle.plate || '';
@@ -807,7 +833,7 @@
         }
         dropdown.style.display = 'none';
         
-        var nbVehiclePlateInput = document.getElementById('nbVehiclePlate');
+        var nbVehiclePlateInput = document.getElementById(prefix + 'VehiclePlate');
         if (nbVehiclePlateInput) {
             nbVehiclePlateInput.dispatchEvent(new Event('input'));
         }
@@ -818,7 +844,7 @@
     dropdown.style.display = 'block';
   }
 
-  function handleInput(e, dropdown) {
+  function handleInput(e, dropdown, prefix) {
     fetchCustomersForAutocomplete();
     var query = e.target.value.trim();
     if (query.length < 2) {
@@ -826,25 +852,20 @@
       return;
     }
     var matches = getMatches(query);
-    renderDropdown(dropdown, matches, e.target);
+    renderDropdown(dropdown, matches, prefix);
   }
 
-  if (nbCustomerInput) {
-    nbCustomerInput.addEventListener('input', function(e) { handleInput(e, nbCustomerDropdown); });
-    nbCustomerInput.addEventListener('focus', function(e) { handleInput(e, nbCustomerDropdown); });
-  }
-  if (nbPhoneInput) {
-    nbPhoneInput.addEventListener('input', function(e) { handleInput(e, nbPhoneDropdown); });
-    nbPhoneInput.addEventListener('focus', function(e) { handleInput(e, nbPhoneDropdown); });
-  }
-
-  document.addEventListener('click', function(e) {
-    if (nbCustomerInput && !nbCustomerInput.contains(e.target) && !nbCustomerDropdown.contains(e.target)) {
-      nbCustomerDropdown.style.display = 'none';
-    }
-    if (nbPhoneInput && !nbPhoneInput.contains(e.target) && !nbPhoneDropdown.contains(e.target)) {
-      nbPhoneDropdown.style.display = 'none';
-    }
+  ['nb', 'np'].forEach(function (prefix) {
+    [['Customer', 'CustomerDropdown'], ['Phone', 'PhoneDropdown']].forEach(function (pair) {
+      var input = document.getElementById(prefix + pair[0]);
+      var dropdown = document.getElementById(prefix + pair[1]);
+      if (!input || !dropdown) return;
+      input.addEventListener('input', function (e) { handleInput(e, dropdown, prefix); });
+      input.addEventListener('focus', function (e) { handleInput(e, dropdown, prefix); });
+      document.addEventListener('click', function (e) {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display = 'none';
+      });
+    });
   });
 
 })();
@@ -856,5 +877,195 @@
     card.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
     });
+  });
+})();
+
+// New Product popup: a booking whose items are inventory products (one unit of each is taken from stock on save)
+(function () {
+  var openBtn = document.getElementById('newProductBtn');
+  var form = document.getElementById('newProductForm');
+  if (!openBtn || !form) return;
+
+  var selectEl = document.getElementById('npProdSelect');
+  var control = document.getElementById('npProdControl');
+  var dropdown = document.getElementById('npProdDropdown');
+  var search = document.getElementById('npProdSearch');
+  var container = document.getElementById('npProdContainer');
+  var chips = document.getElementById('npProdChips');
+  var emptyEl = document.getElementById('npProdEmpty');
+  var submitBtn = document.getElementById('npSubmitBtn');
+
+  function esc(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function checkedBoxes() {
+    return Array.prototype.slice.call(container.querySelectorAll('input[name="npProducts"]:checked'));
+  }
+
+  function renderChips() {
+    var checked = checkedBoxes();
+    if (!checked.length) {
+      chips.innerHTML = '<span class="svc-placeholder">Search and select products…</span>';
+      return;
+    }
+    chips.innerHTML = checked.map(function (cb) {
+      return '<span class="svc-chip" data-id="' + esc(cb.value) + '">' + esc(cb.dataset.name) +
+        '<span class="svc-chip-remove" title="Remove">&times;</span></span>';
+    }).join('');
+  }
+
+  function applyFilter(query) {
+    var q = (query || '').trim().toLowerCase();
+    var visible = 0;
+    container.querySelectorAll('.svc-option').forEach(function (opt) {
+      var match = !q || opt.getAttribute('data-name').indexOf(q) !== -1;
+      opt.classList.toggle('svc-option-hidden', !match);
+      if (match) visible++;
+    });
+    emptyEl.style.display = (q && visible === 0) ? 'block' : 'none';
+  }
+
+  function closeDropdown() {
+    dropdown.classList.remove('open');
+    search.value = '';
+    applyFilter('');
+  }
+
+  async function loadProducts() {
+    container.innerHTML = '';
+    try {
+      var res = await fetch('/api/products', { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var products = (await res.json()).filter(function (p) { return p.active !== false; });
+      if (!products.length) {
+        container.innerHTML = '<div class="svc-empty" style="display:block;">No products yet. Add them on the Products page.</div>';
+        return;
+      }
+      products.forEach(function (p) {
+        var label = document.createElement('label');
+        label.className = 'svc-option';
+        label.setAttribute('data-name', String(p.name || '').toLowerCase());
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.name = 'npProducts';
+        cb.value = p.id;
+        cb.dataset.name = p.name || '';
+        cb.dataset.price = Number(p.unit_cost || 0);
+        cb.dataset.hsn = p.hsn_sac || p.hsn_code || p.hsn || '';
+        cb.dataset.unit = p.unit || 'pcs';
+        label.appendChild(cb);
+        var stock = Number(p.stock || 0);
+        label.appendChild(document.createTextNode(
+          (p.name || '') + ' (₹' + Number(p.unit_cost || 0).toLocaleString('en-IN') + ' · ' + (stock > 0 ? stock + ' in stock' : 'out of stock') + ')'));
+        container.appendChild(label);
+      });
+    } catch (e) {
+      console.error(e);
+      container.innerHTML = '<div class="svc-empty" style="display:block;">Could not load products.</div>';
+    }
+  }
+
+  control.addEventListener('click', function () {
+    if (dropdown.classList.contains('open')) { closeDropdown(); return; }
+    dropdown.classList.add('open');
+    search.focus();
+  });
+  search.addEventListener('input', function () { applyFilter(search.value); });
+  container.addEventListener('change', function (e) {
+    if (e.target && e.target.name === 'npProducts') renderChips();
+  });
+  chips.addEventListener('click', function (e) {
+    var remove = e.target.closest('.svc-chip-remove');
+    if (!remove) return;
+    e.stopPropagation();
+    var cb = container.querySelector('input[name="npProducts"][value="' + CSS.escape(remove.parentElement.getAttribute('data-id')) + '"]');
+    if (cb) cb.checked = false;
+    renderChips();
+  });
+  document.addEventListener('click', function (e) {
+    if (dropdown.classList.contains('open') && !selectEl.contains(e.target)) closeDropdown();
+  });
+
+  openBtn.addEventListener('click', async function () {
+    form.reset();
+    var now = new Date();
+    document.getElementById('npDate').value =
+      now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    document.getElementById('npTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('npVehicleType').value = 'sedan';
+    closeDropdown();
+    await loadProducts();
+    renderChips();
+    window.SW.openModal('newProductModal');
+  });
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var selected = checkedBoxes();
+    if (!selected.length) {
+      alert('Please select at least one product.');
+      return;
+    }
+    var val = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    var customer = val('npCustomer');
+    var phone = val('npPhone');
+    if (!phone) {
+      alert('Please enter the phone number — it is needed for the invoice.');
+      return;
+    }
+    // Same "PLATE (Model)" text job card invoices use, so Payments shows number and model
+    var plate = val('npVehiclePlate').toUpperCase(), model = val('npVehicle');
+    var vehicle = plate ? plate + (model ? ' (' + model + ')' : '') : model;
+
+    // A pending invoice for the selected products, one of each at the product's price.
+    // The invoice itself takes them out of stock; the amount is edited on the Payments page if needed.
+    var payload = {
+      customer: customer,
+      phone: phone,
+      service: 'Product Sale',
+      subtotal: 0,
+      tax_rate: 0,
+      method: 'pending',
+      status: 'pending',
+      items: selected.map(function (cb) {
+        return {
+          product_id: Number(cb.value),
+          name: cb.dataset.name,
+          price: Number(cb.dataset.price || 0),
+          quantity: 1,
+          hsn_sac: cb.dataset.hsn || '',
+          unit: cb.dataset.unit || 'pcs'
+        };
+      })
+    };
+    if (vehicle) payload.vehicle = vehicle;
+
+    submitBtn.disabled = true;
+    try {
+      var res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        var err = await res.json().catch(function () { return {}; });
+        alert('Error: ' + (err.message || 'Could not create the invoice.'));
+        submitBtn.disabled = false;
+        return;
+      }
+      var invoice = await res.json();
+      window.SW.closeModal('newProductModal');
+      window.SW.showToast('Invoice ' + (invoice.invoice_number || invoice.id) + ' created — opening payment');
+      // Payments selects this invoice on load (same hand-off the job cards "Pay" action uses)
+      localStorage.setItem('sw_focus_invoice', invoice.id);
+      window.location.href = '/payments';
+    } catch (err2) {
+      console.error(err2);
+      alert('A connection error occurred.');
+      submitBtn.disabled = false;
+    }
   });
 })();
