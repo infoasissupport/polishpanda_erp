@@ -221,6 +221,10 @@
       const data = await res.json();
 
       if (res.ok) {
+        if (data.user) {
+          localStorage.setItem('sw_user', JSON.stringify(data.user));
+          localStorage.setItem('sw_user_role', data.user.role || 'admin');
+        }
         successAlert.querySelector('.msg-text').textContent = 'Account created successfully! Redirecting to dashboard…';
         successAlert.style.display = 'flex';
         setTimeout(() => {

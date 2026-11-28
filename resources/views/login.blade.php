@@ -118,7 +118,12 @@
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('sw_user_role', 'admin');
+        if (data.user) {
+          localStorage.setItem('sw_user', JSON.stringify(data.user));
+          localStorage.setItem('sw_user_role', data.user.role || 'admin');
+        } else {
+          localStorage.setItem('sw_user_role', 'admin');
+        }
         successAlert.querySelector('.msg-text').textContent = 'Success! Redirecting…';
         successAlert.style.display = 'flex';
         setTimeout(() => window.location.href = urlParams.get('redirect') || '/dashboard', 700);
