@@ -121,9 +121,7 @@
   </div>
     <div class="card">
       <div class="card-title">
-        <span class="inv-preview-heading"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 9h1M9 13h6M13 17h2"/></svg>Invoice Preview</span>
-        <span class="inv-gst-badge" id="previewGstBadge">GST 18%</span>
-      </div>
+        <span class="inv-preview-heading"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 9h1M9 13h6M13 17h2"/></svg>Invoice Preview</span>      </div>
       <div class="inv-preview-meta" id="previewMeta">INV-2026-0842 · 26 Jul 2026</div>
 
       <div class="inv-preview-party">

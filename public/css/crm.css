@@ -154,3 +154,18 @@ border: none;
 #crm .sw-pager .page-num{min-width:32px;height:32px;border:none;border-radius:9px;background:transparent;color:#475467;}
 #crm .sw-pager .page-num:hover{background:#f5f6f8;color:#101828;}
 #crm .sw-pager .page-num.active{background:var(--accent);color:#fff;box-shadow:0 4px 10px -4px rgba(227,18,27,.7);}
+
+/* Customers table: Brand / Model column hidden at every screen size (cell kept so the column positions below stay the same) */
+#crm table:has(#crmTableBody) thead th:nth-child(5),
+#crmTableBody tr td:nth-child(5){display:none !important;}
+
+/* ≤1199px: customer cards get even left/right spacing and never overflow the page width */
+@media (max-width:1199px){
+  #crm > .table-wrap{margin:0 15px !important;overflow-x:hidden;overflow-y:auto;}
+  #crm .table-scroll table{width:100%;max-width:100%;}
+  #crmTableBody tr{box-sizing:border-box;width:100%;max-width:100%;}
+  #crmTableBody tr td{box-sizing:border-box;min-width:0;}
+}
+@media (max-width:767px){
+  #crm > .table-wrap{margin:0 12px !important;}
+}

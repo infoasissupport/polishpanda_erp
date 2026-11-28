@@ -74,6 +74,25 @@
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
+  // "1998-04-07" -> "07/04/1998" (DD/MM/YYYY)
+  function formatDob(dateStr) {
+    var p = String(dateStr || '').slice(0, 10).split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : '';
+  }
+
+  // Birthday matches today's day and month; 29 Feb birthdays count on 28 Feb in non-leap years
+  function isBirthdayToday(s) {
+    if (!s || !s.date_of_birth) return false;
+    var p = String(s.date_of_birth).slice(0, 10).split('-');
+    if (p.length !== 3) return false;
+    var month = Number(p[1]), day = Number(p[2]);
+    var now = new Date();
+    var tm = now.getMonth() + 1, td = now.getDate(), y = now.getFullYear();
+    var leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+    if (month === 2 && day === 29 && !leap) return tm === 2 && td === 28;
+    return month === tm && day === td;
+  }
+
   function formatJoinedDate(dateStr) {
     if (!dateStr) return null;
     var d = new Date(dateStr);
@@ -82,6 +101,8 @@
   }
 
   var PHONE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>';
+  // inline cake icon (ti-cake is not in the bundled Tabler icon font)
+  var CAKE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h18"/><path d="M4 20v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6"/><path d="M4 16c1.3 0 1.3-1 2.7-1s1.3 1 2.6 1 1.4-1 2.7-1 1.3 1 2.6 1 1.4-1 2.7-1 1.4 1 2.7 1"/><path d="M8 12V9M12 12V9M16 12V9"/><path d="M8 6.5a1 1 0 0 0 1-1C9 4.6 8 3.5 8 3.5S7 4.6 7 5.5a1 1 0 0 0 1 1zM12 6.5a1 1 0 0 0 1-1c0-.9-1-2-1-2s-1 1.1-1 2a1 1 0 0 0 1 1zM16 6.5a1 1 0 0 0 1-1c0-.9-1-2-1-2s-1 1.1-1 2a1 1 0 0 0 1 1z"/></svg>';
   var EMP_PENCIL_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
   var EMP_TRASH_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
 
@@ -225,6 +246,8 @@
         '<div class="emp-detail-row"><i class="ti ti-users"></i><span>' + escapeHtml(s.department || s.branch || '—') + '</span></div>' +
         (s.native_place ? '<div class="emp-detail-row"><i class="ti ti-map-pin"></i><span>' + escapeHtml(s.native_place) + '</span></div>' : '') +
         (joined ? '<div class="emp-detail-row"><i class="ti ti-calendar-event"></i><span>Joined ' + joined + '</span></div>' : '') +
+        (s.date_of_birth ? '<div class="emp-detail-row' + (isBirthdayToday(s) ? ' emp-birthday-today' : '') + '">' + CAKE_SVG + '<span>' +
+          (isBirthdayToday(s) ? 'Birthday today · ' : 'Born ') + formatDob(s.date_of_birth) + '</span></div>' : '') +
         '<div class="emp-card-footer" style="flex-direction:column; align-items:stretch; gap:6px;">' +
           '<div style="display:flex; justify-content:space-between;">' +
             '<span class="emp-salary-label">Base Salary</span>' +
@@ -331,6 +354,8 @@
         var actionId = Number(actionBtn.getAttribute('data-id'));
         if (action === 'delete') {
           removeStaff(actionId);
+        } else if (action === 'calendar') {
+          openCalendar(actionId); // monthly attendance calendar
         } else {
           openEdit(actionId);
         }
@@ -379,6 +404,7 @@
 
   function resetForm() {
     form.reset();
+    toggleShiftCustom(); // hide custom shift times after the select goes back to its first option
     if (document.getElementById('stfSalary')) {
       document.getElementById('stfSalary').value = 0;
     }
@@ -547,6 +573,74 @@
     window.SW.openModal('staffModal');
   }
 
+  // ---------- Shift: preset options or a custom start/end time ----------
+  var stfShiftSelect = document.getElementById('stfShift');
+  var stfShiftCustom = document.getElementById('stfShiftCustom');
+  var stfShiftStart = document.getElementById('stfShiftStart');
+  var stfShiftEnd = document.getElementById('stfShiftEnd');
+
+  // "09:30" -> "9:30 AM", "18:00" -> "6 PM" (same style as the preset shifts)
+  function timeToLabel(hhmm) {
+    var p = String(hhmm || '').split(':');
+    if (p.length < 2) return '';
+    var h = parseInt(p[0], 10), m = parseInt(p[1], 10);
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12 || 12;
+    return h12 + (m ? ':' + String(m).padStart(2, '0') : '') + ' ' + ampm;
+  }
+  // "9:30 AM" -> "09:30"
+  function labelToTime(label) {
+    var v = parseClockTime(String(label || ''));
+    if (v == null) return '';
+    var h = Math.floor(v), m = Math.round((v - h) * 60);
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  function toggleShiftCustom() {
+    if (stfShiftCustom && stfShiftSelect) stfShiftCustom.style.display = stfShiftSelect.value === '__custom__' ? 'flex' : 'none';
+  }
+
+  function setShiftField(shift) {
+    if (!stfShiftSelect) return;
+    var isPreset = Array.prototype.some.call(stfShiftSelect.options, function (o) { return o.value === shift && o.value !== '__custom__'; });
+    if (!shift || isPreset) {
+      stfShiftSelect.value = shift || stfShiftSelect.options[0].value;
+    } else {
+      // a custom shift such as "10 AM – 7 PM": open the time pickers with its times
+      var parts = String(shift).split(/[–-]/);
+      var start = parts.length === 2 ? labelToTime(parts[0]) : '';
+      var end = parts.length === 2 ? labelToTime(parts[1]) : '';
+      stfShiftSelect.value = '__custom__';
+      if (stfShiftStart) stfShiftStart.value = start || '09:00';
+      if (stfShiftEnd) stfShiftEnd.value = end || '18:00';
+    }
+    toggleShiftCustom();
+  }
+
+  function getShiftFieldValue() {
+    if (!stfShiftSelect) return '';
+    if (stfShiftSelect.value !== '__custom__') return stfShiftSelect.value;
+    var start = stfShiftStart && stfShiftStart.value, end = stfShiftEnd && stfShiftEnd.value;
+    if (!start || !end) return '';
+    return timeToLabel(start) + ' – ' + timeToLabel(end);
+  }
+
+  if (stfShiftSelect) stfShiftSelect.addEventListener('change', toggleShiftCustom);
+
+  // Picking a date of birth fills in Age (still editable)
+  var stfDobInput = document.getElementById('stfDob');
+  if (stfDobInput) {
+    stfDobInput.addEventListener('change', function () {
+      var ageEl = document.getElementById('stfAge');
+      var p = stfDobInput.value.split('-');
+      if (!ageEl || p.length !== 3) return;
+      var now = new Date();
+      var age = now.getFullYear() - Number(p[0]);
+      if (now.getMonth() + 1 < Number(p[1]) || (now.getMonth() + 1 === Number(p[1]) && now.getDate() < Number(p[2]))) age--;
+      if (age >= 0 && age < 120) ageEl.value = age;
+    });
+  }
+
   var addEmployeeBtn = document.getElementById('addEmployeeBtn');
   if (addEmployeeBtn) {
     addEmployeeBtn.addEventListener('click', function () {
@@ -599,11 +693,14 @@
     if (document.getElementById('stfJoinedAt')) {
       document.getElementById('stfJoinedAt').value = s.joined_at ? String(s.joined_at).slice(0, 10) : '';
     }
+    if (document.getElementById('stfDob')) {
+      document.getElementById('stfDob').value = s.date_of_birth ? String(s.date_of_birth).slice(0, 10) : '';
+    }
     if (document.getElementById('stfRole')) {
       document.getElementById('stfRole').value = s.role || 'staff';
     }
     document.getElementById('stfBranch').value = s.branch;
-    document.getElementById('stfShift').value = s.shift;
+    setShiftField(s.shift);
     document.getElementById('stfAttendance').value = s.attendance;
     if (document.getElementById('stfSalary')) {
       document.getElementById('stfSalary').value = s.base_salary || 0;
@@ -670,18 +767,27 @@
       var maritalStatus = document.getElementById('stfMaritalStatus') ? document.getElementById('stfMaritalStatus').value : '';
       var highestEducation = document.getElementById('stfHighestEducation') ? document.getElementById('stfHighestEducation').value.trim() : '';
       var joinedAt = document.getElementById('stfJoinedAt') ? document.getElementById('stfJoinedAt').value : '';
+      var dateOfBirth = document.getElementById('stfDob') ? document.getElementById('stfDob').value : '';
       var phone = document.getElementById('stfPhone').value.trim();
       var email = document.getElementById('stfEmail') ? document.getElementById('stfEmail').value.trim() : '';
       var role = document.getElementById('stfRole') ? document.getElementById('stfRole').value : 'staff';
       var password = document.getElementById('stfPassword') ? document.getElementById('stfPassword').value.trim() : '';
       var branch = document.getElementById('stfBranch').value;
-      var shift = document.getElementById('stfShift').value;
+      var shift = getShiftFieldValue();
+      if (!shift) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = submitBtn.dataset.originalHtml || submitBtn.innerHTML;
+        }
+        alert('Please choose a start and end time for the custom shift.');
+        return;
+      }
       var attendance = document.getElementById('stfAttendance').value;
       var leaveType = attendance === 'on_leave' ? document.getElementById('stfLeaveType').value : null;
       var baseSalary = document.getElementById('stfSalary') ? (parseInt(document.getElementById('stfSalary').value) || 0) : 0;
       var selectedDate = attendanceDateInput ? attendanceDateInput.value : null;
 
-      var payload = { name: name, first_name: firstName, last_name: lastName, employee_id: employeeId, native_place: nativePlace, gender: gender, age: age, marital_status: maritalStatus, highest_education: highestEducation, joined_at: joinedAt || null, phone: phone, email: email, password: password, role: role, branch: branch, shift: shift, attendance: attendance, leave_type: leaveType, base_salary: baseSalary, date: selectedDate };
+      var payload = { name: name, first_name: firstName, last_name: lastName, employee_id: employeeId, native_place: nativePlace, gender: gender, age: age, marital_status: maritalStatus, highest_education: highestEducation, joined_at: joinedAt || null, date_of_birth: dateOfBirth || null, phone: phone, email: email, password: password, role: role, branch: branch, shift: shift, attendance: attendance, leave_type: leaveType, base_salary: baseSalary, date: selectedDate };
 
       try {
         var res;
@@ -796,6 +902,19 @@
     presentEl.textContent = STAFF.filter(function (s) { return s.attendance === 'present'; }).length;
     absentEl.textContent = STAFF.filter(function (s) { return s.attendance === 'absent'; }).length;
     lateEl.textContent = STAFF.filter(function (s) { return s.attendance === 'late'; }).length;
+
+    var bdayEl = document.getElementById('kpiBirthdayToday');
+    var bdaySub = document.getElementById('kpiBirthdaySub');
+    if (bdayEl) {
+      var celebrating = STAFF.filter(isBirthdayToday);
+      bdayEl.textContent = celebrating.length;
+      if (bdaySub) {
+        var names = celebrating.map(function (s) { return s.name; });
+        bdaySub.textContent = names.length ? names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) + ' more' : '') : 'No birthdays today';
+        bdaySub.title = names.join(', ');
+      }
+      bdayEl.closest('.stf-stat-card').classList.toggle('has-birthday', celebrating.length > 0);
+    }
   }
   // Daily Attendance Modal Logic
   var dailyAttendanceBtn = document.getElementById('dailyAttendanceBtn');
@@ -833,21 +952,14 @@
           outTimeVal = String(s.check_out_time).substring(0, 5);
         }
 
+        var initial = (s.name || '?').trim().charAt(0).toUpperCase();
         row.innerHTML =
-          '<div class="attendance-staff-info">' +
-            '<div class="attendance-staff-name">' + escapeHtml(s.name) + '</div>' +
-            '<div class="attendance-staff-meta">' + escapeHtml(s.branch) + ' · ' + escapeHtml(s.shift) + '</div>' +
-          '</div>' +
-          '<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">' +
-            '<div class="attendance-time-wrap" data-staff-id="' + s.id + '" style="display: ' + (isPresentOrLate ? 'inline-flex' : 'none') + '; align-items: center; gap: 8px;">' +
-              '<div style="display: inline-flex; align-items: center; gap: 3px;">' +
-                '<span style="font-size: 11px; color: #64748b; font-weight: 600;">In:</span>' +
-                '<input type="time" class="time-in-input" data-staff-id="' + s.id + '" value="' + inTimeVal + '" style="height: 30px; padding: 0 4px; font-size: 11.5px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #1e293b;">' +
-              '</div>' +
-              '<div style="display: inline-flex; align-items: center; gap: 3px;">' +
-                '<span style="font-size: 11px; color: #64748b; font-weight: 600;">Out:</span>' +
-                '<input type="time" class="time-out-input" data-staff-id="' + s.id + '" value="' + outTimeVal + '" style="height: 30px; padding: 0 4px; font-size: 11.5px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #1e293b;">' +
-                '<button type="button" class="btn-checkout-now" data-staff-id="' + s.id + '" title="Set Check-out to current time" style="height: 26px; padding: 0 6px; font-size: 10.5px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; color: #475569; cursor: pointer;">Now</button>' +
+          '<div class="att-row-top">' +
+            '<div class="att-row-who">' +
+              '<span class="att-avatar">' + escapeHtml(initial) + '</span>' +
+              '<div class="attendance-staff-info">' +
+                '<div class="attendance-staff-name">' + escapeHtml(s.name) + '</div>' +
+                '<div class="attendance-staff-meta">' + [s.branch, s.shift].filter(Boolean).map(escapeHtml).join(' · ') + '</div>' +
               '</div>' +
             '</div>' +
             '<div class="attendance-segmented" data-staff-id="' + s.id + '">' +
@@ -861,6 +973,17 @@
                 '<input type="radio" name="att_' + s.id + '" value="absent" ' + (s.attendance === 'absent' ? 'checked' : '') + '> Absent' +
               '</label>' +
             '</div>' +
+          '</div>' +
+          '<div class="attendance-time-wrap" data-staff-id="' + s.id + '" style="display:' + (isPresentOrLate ? 'grid' : 'none') + ';">' +
+            '<label class="att-time-field">' +
+              '<span class="att-time-label">Check-in</span>' +
+              '<span class="att-time-box"><input type="time" class="time-in-input" data-staff-id="' + s.id + '" value="' + inTimeVal + '"></span>' +
+            '</label>' +
+            '<label class="att-time-field">' +
+              '<span class="att-time-label">Check-out</span>' +
+              '<span class="att-time-box"><input type="time" class="time-out-input" data-staff-id="' + s.id + '" value="' + outTimeVal + '">' +
+                '<button type="button" class="btn-checkout-now" data-staff-id="' + s.id + '" title="Set check-out to current time">Now</button></span>' +
+            '</label>' +
           '</div>';
 
         var labels = row.querySelectorAll('.attendance-segmented label');
@@ -884,11 +1007,11 @@
             if (this.checked) {
               if (this.value === 'present') {
                 label.classList.add('active-present');
-                if (timeWrap) timeWrap.style.display = 'inline-flex';
+                if (timeWrap) timeWrap.style.display = 'grid';
                 if (timeInput && !timeInput.value) timeInput.value = getCurrentTimeHHMM();
               } else if (this.value === 'late') {
                 label.classList.add('active-late');
-                if (timeWrap) timeWrap.style.display = 'inline-flex';
+                if (timeWrap) timeWrap.style.display = 'grid';
                 if (timeInput && !timeInput.value) timeInput.value = getCurrentTimeHHMM();
               } else if (this.value === 'absent') {
                 label.classList.add('active-absent');

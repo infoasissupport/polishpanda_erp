@@ -34,6 +34,8 @@ section#settings.view { padding: 0 !important; }
 .form-row .field { flex: 1; }
 .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .form-grid .field-full { grid-column: 1 / -1; }
+.form-grid .field-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; min-width: 0; }
+.form-grid .field-pair .field label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1024px) { .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
 
@@ -45,7 +47,7 @@ section#settings.view { padding: 0 !important; }
   font-size: 14px; color: #101828; transition: border-color .15s ease, box-shadow .15s ease;
 }
 #settings .field input { height: 42px; }
-#settings .field textarea { padding: 10px 14px; min-height: 90px; resize: vertical; line-height: 1.5; }
+#settings .field textarea { padding: 10px 14px;  resize: vertical; line-height: 1.5; font-family: inherit; font-size: 14px; }
 #settings .field input::placeholder, #settings .field textarea::placeholder { color: #98a2b3; }
 #settings .field input:hover, #settings .field textarea:hover { border-color: #98a2b3; }
 #settings .field input:focus, #settings .field textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(227,18,27,.12); }
@@ -69,13 +71,26 @@ section#settings.view { padding: 0 !important; }
 
 /* Save + backup bar stays pinned to the bottom while the form scrolls */
 .settings-footer {
-  position: sticky; bottom: 0; z-index: 5; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+  z-index: 5; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
   margin: 0; padding: 16px 20px; background: #fff; border: 1px solid #e6e8ec; border-radius: 16px;
   box-shadow: 0 -10px 24px -18px rgba(16,24,40,.35);
 }
 .settings-footer-backup h3 { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; color: #0b0b0c; margin: 0 0 6px; }
 .settings-footer-backup h3::before { content: ""; width: 4px; height: 18px; border-radius: 4px; background: var(--accent); flex-shrink: 0; }
 .settings-footer-backup p { margin-bottom: 10px !important; }
+
+/* Wide screens: form sections on the left, Backup & Export + Save in a panel on the right that stays in view */
+@media (min-width: 1200px) {
+  #settings .settings-container form { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+  #settings .settings-section { grid-column: 1; }
+  #settings .settings-footer {
+    grid-column: 2; grid-row: 1 / span 2; position: sticky; top: 0;
+    flex-direction: column; align-items: stretch; gap: 14px; padding: 18px; box-shadow: 0 12px 28px -20px rgba(16,24,40,.35);
+  }
+  #settings .settings-footer-backup { display: flex; flex-direction: column; gap: 4px; padding-bottom: 14px; border-bottom: 1px dashed #e4e7ec; }
+  #settings .settings-footer-backup p { margin-bottom: 8px !important; line-height: 1.5; }
+  #settings .settings-footer .btn-save { width: 100%; }
+}
 
 @media (max-width: 1199px) {
   #settings .view-header .view-title { font-size: 28px; }
@@ -110,11 +125,14 @@ section#settings.view { padding: 0 !important; }
             <div class="field"><label>Phone</label><input type="text" id="company_phone"></div>
             <div class="field"><label>Website</label><input type="text" id="company_website"></div>
             <div class="field"><label>GSTIN</label><input type="text" id="company_gstin"></div>
-            <div class="field"><label>CGST Rate (%)</label><input type="number" id="cgst_rate" step="0.01" min="0" max="50" placeholder="e.g. 9"></div>
-            <div class="field"><label>SGST Rate (%)</label><input type="number" id="sgst_rate" step="0.01" min="0" max="50" placeholder="e.g. 9"></div>
+            {{-- CGST and SGST share one column, split equally --}}
+            <div class="field-pair">
+              <div class="field"><label>CGST Rate (%)</label><input type="number" id="cgst_rate" step="0.01" min="0" max="50" placeholder="e.g. 9"></div>
+              <div class="field"><label>SGST Rate (%)</label><input type="number" id="sgst_rate" step="0.01" min="0" max="50" placeholder="e.g. 9"></div>
+            </div>
             <div class="field"><label>Instagram URL</label><input type="url" id="instagram_url" placeholder="https://instagram.com/..."></div>
             <div class="field"><label>Google Business URL</label><input type="url" id="google_business_url" placeholder="https://g.page/..."></div>
-            <div class="field field-full"><label>Address</label><textarea id="company_address" rows="3"></textarea></div>
+            <div class="field field-full"><label>Address</label><textarea id="company_address" rows="5"></textarea></div>
           </div>
         </div>
         <div class="settings-section">
@@ -125,9 +143,10 @@ section#settings.view { padding: 0 !important; }
             <div class="field"><label>Bank Name</label><input type="text" id="bank_name"></div>
             <div class="field"><label>Branch Name</label><input type="text" id="bank_branch"></div>
             <div class="field"><label>IFSC Code</label><input type="text" id="bank_ifsc"></div>
-            <div class="field"><label>Upload Company Logo</label><input type="file" id="company_logo" accept="image/*"></div>
+            <div class="field"><label>Upload Company Logo <span style="font-weight:400;color:#98a2b3;">(max {{ ini_get('upload_max_filesize') }}B)</span></label><input type="file" id="company_logo" accept="image/*"></div>
             <div class="field"><label>Upload UPI QR Code</label><input type="file" id="upi_qr_code" accept="image/*"></div>
-            <div class="field"><label>Upload Signature Photo</label><input type="file" id="signature" accept="image/*"></div>
+            <div class="field"><label>Upload Signature Photo <span style="font-weight:400;color:#98a2b3;">(max {{ ini_get('upload_max_filesize') }}B)</span></label><input type="file" id="signature" accept="image/*"></div>
+            <div class="field"><label>Upload Seal <span style="font-weight:400;color:#98a2b3;">(max {{ ini_get('upload_max_filesize') }}B)</span></label><input type="file" id="seal" accept="image/*"></div>
           </div>
         </div>
         <div class="settings-footer">
@@ -201,13 +220,32 @@ document.addEventListener('DOMContentLoaded', async function() {
     const sigInput = document.getElementById('signature');
     if (sigInput.files.length > 0) formData.append('signature', sigInput.files[0]);
 
+    const sealInput = document.getElementById('seal');
+    if (sealInput.files.length > 0) formData.append('seal', sealInput.files[0]);
+
+    // Images over the server's upload limit are rejected by PHP, so catch them here with a clear message
+    const MAX_UPLOAD_BYTES = {{ (function () { $v = trim(ini_get('upload_max_filesize')); $n = (float) $v; $u = strtolower(substr($v, -1)); return (int) ($u === 'g' ? $n * 1073741824 : ($u === 'm' ? $n * 1048576 : ($u === 'k' ? $n * 1024 : $n))); })() }};
+    const tooBig = [[logoInput, 'Company logo'], [qrInput, 'UPI QR code'], [sigInput, 'Signature'], [sealInput, 'Seal']]
+      .filter(([input]) => input.files.length > 0 && input.files[0].size > MAX_UPLOAD_BYTES)
+      .map(([input, label]) => label + ' (' + (input.files[0].size / 1048576).toFixed(1) + ' MB)');
+    if (tooBig.length) {
+      alert(tooBig.join(', ') + ' is too large. The maximum is ' + (MAX_UPLOAD_BYTES / 1048576).toFixed(0) + ' MB — please use a smaller image.');
+      return;
+    }
+
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
+        headers: { 'Accept': 'application/json' },
         body: formData
       });
-      if (res.ok) alert('Settings saved successfully!');
-      else alert('Failed to save settings.');
+      if (res.ok) {
+        alert('Settings saved successfully!');
+        [logoInput, qrInput, sigInput, sealInput].forEach(input => { input.value = ''; });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message || (res.status === 413 ? 'The images are too large to upload together. Please use smaller images.' : 'Failed to save settings.'));
+      }
     } catch (err) { alert('Error saving settings.'); }
   });
 

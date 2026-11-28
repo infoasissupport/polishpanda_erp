@@ -57,8 +57,8 @@
       </div>
     </div>
 
-    <!-- Card 3: Follow-ups -->
-    <div class="leads-kpi-card">
+    <!-- Card 3: Follow-ups (click opens the Follow-Ups list popup) -->
+    <div class="leads-kpi-card leads-kpi-clickable" id="kpiFollowUpCard" role="button" tabindex="0" aria-label="View all follow-ups">
       <div class="leads-kpi-icon leads-kpi-purple" id="kpiFollowUpIcon">
         <i class="ti ti-calendar-event"></i>
       </div>
@@ -574,8 +574,118 @@
   </div>
 </div>
 
+<!-- Estimation / Quote popup (opened from the calculator button on each lead card) -->
+<div class="modal-overlay" id="estimateModal">
+  <div class="modal est-modal">
+    <div class="modal-header">
+      <div class="est-head-text">
+        <div class="modal-title">Estimation <span class="est-number" id="estNumber"></span></div>
+        <div class="est-subtitle" id="estLeadLine"></div>
+      </div>
+      <button type="button" class="icon-btn" onclick="window.SW.closeModal('estimateModal')" aria-label="Close modal"><i class="ti ti-x"></i></button>
+    </div>
+    <form id="estimateForm">
+      <div class="est-tabs" role="tablist">
+        <button type="button" class="est-tab active" data-est-tab="edit"><i class="ti ti-edit"></i>Edit</button>
+        <button type="button" class="est-tab" data-est-tab="preview"><i class="ti ti-eye"></i>Preview</button>
+      </div>
+      <div class="est-preview" id="estPreviewPane" style="display:none;">
+        <iframe id="estPreviewFrame" title="Estimate preview"></iframe>
+      </div>
+      <div class="modal-body est-body" id="estEditPane">
+        <div class="est-add-row">
+          <select id="estAddService" aria-label="Add a service"><option value="">+ Add service…</option></select>
+          <select id="estAddProduct" aria-label="Add a product"><option value="">+ Add product…</option></select>
+          <button type="button" class="btn" id="estAddCustom"><i class="ti ti-plus"></i>Custom item</button>
+        </div>
+
+        <div class="est-items-wrap">
+          <table class="est-items">
+            <thead><tr><th>Item</th><th class="est-th-hsn">HSN/ SAC</th><th class="est-th-qty">Qty</th><th class="est-th-unit">Unit</th><th class="est-th-price">Price (incl. GST)</th><th class="est-th-gst">GST %</th><th class="est-th-amt">Amount</th><th class="est-th-del"></th></tr></thead>
+            <tbody id="estItems"></tbody>
+          </table>
+          <div class="est-empty" id="estEmpty">Add services or products to build the estimate.</div>
+        </div>
+
+        <div class="est-bottom">
+          <div class="est-meta">
+            <div class="field"><label for="estValidUntil">Valid until</label><input type="date" id="estValidUntil"></div>
+            <div class="field"><label for="estNotes">Description</label><textarea id="estNotes" rows="3" placeholder="e.g. 3 Year Warranty"></textarea></div>
+          </div>
+          <div class="est-totals">
+            <div class="est-total-row"><span>Subtotal</span><span id="estSubtotal">₹0</span></div>
+            <div class="est-total-row est-discount-row"><label for="estDiscount">Discount (₹)</label><input type="number" id="estDiscount" min="0" step="1" value="0"></div>
+            <div class="est-total-row est-grand"><span>Total</span><span id="estTotal">₹0</span></div>
+            <div class="est-saved" id="estSavedInfo"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer est-footer">
+        <button type="button" class="btn" onclick="window.SW.closeModal('estimateModal')">Cancel</button>
+        <button type="button" class="btn est-btn-print" id="estPrintBtn"><i class="ti ti-printer"></i>Print / PDF</button>
+        <button type="button" class="btn est-btn-wa" id="estWhatsappBtn"><i class="ti ti-brand-whatsapp"></i>Send on WhatsApp</button>
+        <button type="submit" class="btn btn-accent" id="estSaveBtn"><i class="ti ti-check"></i>Save Estimate</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- All Follow-Ups popup (opened from the Follow-ups KPI card) -->
+<div class="modal-overlay" id="followUpsListModal">
+  <div class="modal fux-modal">
+    <div class="modal-header fux-header">
+      <div class="fux-head-text">
+        <div class="modal-title">Follow-Ups <span class="fux-count" id="fuxHeaderCount">0 Follow-Ups</span></div>
+        <div class="fux-subtitle">View and manage all scheduled follow-ups</div>
+      </div>
+      <button type="button" class="icon-btn" onclick="window.SW.closeModal('followUpsListModal')" aria-label="Close modal"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body fux-body">
+      <div class="fux-summary">
+        <div class="fux-sum fux-sum--total"><span class="fux-sum-label">Total Follow-Ups</span><span class="fux-sum-value" id="fuxSumTotal">0</span></div>
+        <div class="fux-sum fux-sum--today"><span class="fux-sum-label">Today's</span><span class="fux-sum-value" id="fuxSumToday">0</span></div>
+        <div class="fux-sum fux-sum--upcoming"><span class="fux-sum-label">Upcoming</span><span class="fux-sum-value" id="fuxSumUpcoming">0</span></div>
+        <div class="fux-sum fux-sum--overdue"><span class="fux-sum-label">Overdue</span><span class="fux-sum-value" id="fuxSumOverdue">0</span></div>
+      </div>
+
+      <div class="fux-toolbar">
+        <div class="fux-tabs" role="tablist" id="fuxTabs">
+          <button type="button" class="fux-tab active" data-tab="all">All <span class="fux-tab-n" data-n="all">0</span></button>
+          <button type="button" class="fux-tab" data-tab="today">Today <span class="fux-tab-n" data-n="today">0</span></button>
+          <button type="button" class="fux-tab" data-tab="upcoming">Upcoming <span class="fux-tab-n" data-n="upcoming">0</span></button>
+          <button type="button" class="fux-tab" data-tab="overdue">Overdue <span class="fux-tab-n" data-n="overdue">0</span></button>
+          <button type="button" class="fux-tab" data-tab="completed">Completed <span class="fux-tab-n" data-n="completed">0</span></button>
+        </div>
+        <div class="fux-search">
+          <i class="ti ti-search"></i>
+          <input type="search" id="fuxSearch" placeholder="Search name or phone…" autocomplete="off" aria-label="Search follow-ups by customer name or phone">
+        </div>
+      </div>
+
+      <div class="fux-table-wrap">
+        <table class="fux-table">
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Phone</th>
+              <th>Follow-Up Date</th>
+              <th>Purpose / Notes</th>
+              <th>Assigned Staff</th>
+              <th>Status</th>
+              <th class="fux-th-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="fuxRows"></tbody>
+        </table>
+        <div class="fux-empty" id="fuxEmpty" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 @endsection
 
 @section('scripts')
+  <script src="{{ asset('js/estimate-doc.js') }}?v={{ filemtime(public_path('js/estimate-doc.js')) }}"></script>
   <script src="{{ asset('js/leads.js') }}?v={{ file_exists(public_path('js/leads.js')) ? filemtime(public_path('js/leads.js')) : time() }}"></script>
 @endsection
