@@ -177,6 +177,15 @@
   </div>
 </div>
 
+<script>
+  window.AUTH_USER = {
+    id: {{ $authUser?->id ?? 0 }},
+    name: @json($authUser?->name ?? ''),
+    email: @json($authUser?->email ?? ''),
+    role: @json($authUser?->role ?? 'admin')
+  };
+  window.AUTH_USER_ROLE = @json($authUser?->role ?? 'admin');
+</script>
 <script src="{{ asset('js/common.js') }}?v={{ filemtime(public_path('js/common.js')) }}"></script>
 @yield('scripts')
 </body>

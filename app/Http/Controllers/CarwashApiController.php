@@ -499,6 +499,13 @@ FILES:
             'reminder_note' => 'nullable|string',
         ]);
 
+        if (Auth::user()?->role === 'manager') {
+            $bookingDateStr = $validated['booking_date'] ?? now()->toDateString();
+            if (\Carbon\Carbon::parse($bookingDateStr)->isBefore(today())) {
+                return response()->json(['message' => 'Managers cannot create appointments for previous dates.'], 422);
+            }
+        }
+
         $userId = $this->currentUserId();
 
         if (!empty($validated['vehicle_plate'])) {
@@ -609,6 +616,13 @@ FILES:
             'reminder_date' => 'nullable|date',
             'reminder_note' => 'nullable|string',
         ]);
+
+        if (Auth::user()?->role === 'manager') {
+            $bookingDateStr = $validated['booking_date'] ?? now()->toDateString();
+            if (\Carbon\Carbon::parse($bookingDateStr)->isBefore(today())) {
+                return response()->json(['message' => 'Managers cannot create appointments for previous dates.'], 422);
+            }
+        }
 
         $userId = $this->currentUserId();
         $booking = $this->applyBranchFilter(Booking::where('user_id', $userId), request())->findOrFail($id);
@@ -2719,6 +2733,10 @@ FILES:
             $invoice->status = $validated['status'];
             $invoice->payment_status = $validated['status'];
             if ($validated['status'] === 'paid') {
+                if (Auth::user()?->role === 'manager' && !empty($validated['paid_at']) && \Carbon\Carbon::parse($validated['paid_at'])->isBefore(today())) {
+                    $validated['paid_at'] = now();
+                    $validated['date'] = now()->format('d M Y');
+                }
                 $invoice->paid_at = $validated['paid_at'] ?? now();
                 if (!empty($validated['date'])) {
                     $invoice->date = $validated['date'];
@@ -2735,6 +2753,10 @@ FILES:
             $invoice->payment_status = $validated['payment_status'];
             $invoice->status = $validated['payment_status'];
             if ($validated['payment_status'] === 'paid') {
+                if (Auth::user()?->role === 'manager' && !empty($validated['paid_at']) && \Carbon\Carbon::parse($validated['paid_at'])->isBefore(today())) {
+                    $validated['paid_at'] = now();
+                    $validated['date'] = now()->format('d M Y');
+                }
                 $invoice->paid_at = $validated['paid_at'] ?? now();
                 if (!empty($validated['date'])) {
                     $invoice->date = $validated['date'];

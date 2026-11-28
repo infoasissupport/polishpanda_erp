@@ -230,7 +230,16 @@
     }
     window.nbSelectedPhotos = [];
     var dateInput = document.getElementById('nbDate');
-    if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+    var isManager = (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager');
+    var todayStr = new Date().toISOString().slice(0, 10);
+    if (dateInput) {
+      dateInput.value = todayStr;
+      if (isManager) {
+        dateInput.min = todayStr;
+      } else {
+        dateInput.removeAttribute('min');
+      }
+    }
     checkNbPastDate();
 
     var timeInput = document.getElementById('nbTime');
@@ -316,6 +325,11 @@
     var notice = document.getElementById('nbPastDateNotice');
     var label = document.getElementById('nbPastDateLabel');
     if (!nbDateInput || !notice) return;
+    var isManager = (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager');
+    if (isManager) {
+      notice.style.display = 'none';
+      return;
+    }
     var val = nbDateInput.value;
     var todayStr = new Date().toISOString().slice(0, 10);
     if (val && val < todayStr) {
@@ -367,6 +381,12 @@
     var time = document.getElementById('nbTime').value;
     var source = document.getElementById('nbSource').value || 'walkin';
     var bookingDate = document.getElementById('nbDate') ? document.getElementById('nbDate').value : '';
+    var isManager = (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager');
+    var todayStr = new Date().toISOString().slice(0, 10);
+    if (isManager && bookingDate && bookingDate < todayStr) {
+      alert('Managers cannot create appointments for previous dates.');
+      return;
+    }
     var pickupRequired = document.getElementById('nbPickup') ? document.getElementById('nbPickup').checked : false;
     var whatsappOptIn = document.getElementById('nbWhatsappOptIn') ? document.getElementById('nbWhatsappOptIn').checked : true;
     var notes = document.getElementById('nbNotes') ? document.getElementById('nbNotes').value.trim() : '';

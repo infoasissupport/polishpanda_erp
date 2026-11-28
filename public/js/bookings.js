@@ -349,7 +349,16 @@
     }
     window.nbSelectedPhotos = [];
       var dateInput = document.getElementById('nbDate');
-      if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+      var isManager = (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager');
+      var todayStr = new Date().toISOString().slice(0, 10);
+      if (dateInput) {
+        dateInput.value = todayStr;
+        if (isManager) {
+          dateInput.min = todayStr;
+        } else {
+          dateInput.removeAttribute('min');
+        }
+      }
 
       var timeInput = document.getElementById('nbTime');
       if (timeInput) {
@@ -567,6 +576,12 @@
       var sourceValue = document.getElementById('nbSource').value;
       var time = document.getElementById('nbTime').value;
       var bookingDate = document.getElementById('nbDate') ? document.getElementById('nbDate').value : '';
+      var isManager = (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager');
+      var todayStr = new Date().toISOString().slice(0, 10);
+      if (isManager && bookingDate && bookingDate < todayStr) {
+        alert('Managers cannot create appointments for previous dates.');
+        return;
+      }
       var pickupRequired = document.getElementById('nbPickup') ? document.getElementById('nbPickup').checked : false;
       var whatsappOptIn = document.getElementById('nbWhatsappOptIn') ? document.getElementById('nbWhatsappOptIn').checked : true;
       var notes = document.getElementById('nbNotes') ? document.getElementById('nbNotes').value.trim() : '';

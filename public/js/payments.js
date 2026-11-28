@@ -792,7 +792,8 @@
           invDateStr = parsed.toISOString().slice(0, 10);
         }
       }
-      if (inv.status === 'pending' && invDateStr && invDateStr < todayStr) {
+      var isManager = (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager');
+      if (!isManager && inv.status === 'pending' && invDateStr && invDateStr < todayStr) {
         payDateGroup.style.display = 'block';
         payDateInput.value = invDateStr;
       } else {
