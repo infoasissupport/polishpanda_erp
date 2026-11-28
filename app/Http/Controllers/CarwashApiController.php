@@ -727,6 +727,10 @@ FILES:
 
     public function updateCustomer(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit customers.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
@@ -929,6 +933,10 @@ FILES:
 
     public function updateLead(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit leads.'], 403);
+        }
+
         $userId = $this->currentUserId();
         $lead = Lead::where('user_id', $userId)->findOrFail($id);
 
@@ -1268,6 +1276,10 @@ FILES:
 
     public function updateVehicle(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit vehicles.'], 403);
+        }
+
         $validated = $request->validate([
             'brand' => 'required|string|max:255',
             'colour' => 'nullable|string|max:255',
@@ -1424,6 +1436,10 @@ FILES:
 
     public function updateService(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit services.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'desc' => 'nullable|string',
@@ -1647,6 +1663,10 @@ FILES:
 
     public function updateStaff(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit staff.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'first_name' => 'nullable|string|max:255',
@@ -1960,6 +1980,10 @@ FILES:
 
     public function updateExpense(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit expenses.'], 403);
+        }
+
         $validated = $request->validate([
             'category' => 'nullable|string|max:255',
             'name' => 'nullable|string|max:255',
@@ -2086,6 +2110,10 @@ FILES:
 
     public function updateInventory(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit products or inventory.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',

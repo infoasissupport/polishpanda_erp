@@ -144,6 +144,7 @@
   }
 
   function openEdit(id) {
+    if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
     var prod = findProduct(id);
     if (!prod) return;
     editingId = id;

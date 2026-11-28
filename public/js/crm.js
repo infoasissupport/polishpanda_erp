@@ -224,6 +224,7 @@
   var editingCustomerId = null;
 
   function openEdit(vehicle) {
+    if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
     editingVehicleId = vehicle.id;
     editingCustomerId = vehicle.customer ? vehicle.customer.id : null;
     document.getElementById('evCustomerName').value = vehicle.customer ? (vehicle.customer.name || '') : '';

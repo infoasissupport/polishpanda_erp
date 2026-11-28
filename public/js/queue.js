@@ -962,6 +962,7 @@
       var customer = row.getAttribute('data-customer');
 
       if (editBtn) {
+        if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
         document.getElementById('ewId').value = id;
         document.getElementById('ewCustomer').value = customer || '';
         document.getElementById('ewPhone').value = row.getAttribute('data-phone') || '';

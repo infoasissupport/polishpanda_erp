@@ -411,6 +411,11 @@ document.addEventListener('click', function (e) {
       if (emailLabel && user.email) emailLabel.textContent = user.email;
       var roleLabel = document.getElementById('userRoleLabel');
       if (roleLabel) roleLabel.textContent = user.role === 'manager' ? 'Manager' : 'Admin';
+      if (user.role === 'manager') {
+        document.body.classList.add('role-manager');
+      } else {
+        document.body.classList.remove('role-manager');
+      }
       if (dropdownName && user.name) dropdownName.textContent = user.name;
       if (dropdownEmail && user.email) dropdownEmail.textContent = user.email;
 

@@ -1516,6 +1516,7 @@
   
   if (editInvoiceBtn) {
     editInvoiceBtn.addEventListener('click', async function () {
+      if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
       var inv = findInvoice(selectedId);
       if (!inv) return;
       document.getElementById('editInvoiceId').value = inv.id;

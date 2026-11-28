@@ -383,6 +383,7 @@
   }
 
   async function openEdit(b) {
+    if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
     editingBookingId = b.id;
     if (bookingModalTitle) bookingModalTitle.textContent = 'Edit booking';
     if (bookingSubmitBtn) bookingSubmitBtn.innerHTML = '<i class="ti ti-check"></i>Save changes';

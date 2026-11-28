@@ -10,8 +10,35 @@
 <link rel="stylesheet" href="{{ asset('css/common.css') }}?v={{ filemtime(public_path('css/common.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v={{ filemtime(public_path('css/shell.css')) }}">
 @yield('styles')
+<style>
+  /* Manager role: hide all edit buttons and options across all screens */
+  body.role-manager .service-edit-btn,
+  body.role-manager .stf-edit-btn,
+  body.role-manager [data-action="edit"],
+  body.role-manager #previewEditBtn,
+  body.role-manager .inv-btn-edit,
+  body.role-manager .wl-edit-btn,
+  body.role-manager .edit-booking-btn,
+  body.role-manager .jc-edit-btn,
+  body.role-manager .exp-action-btn.edit,
+  body.role-manager #crmTable .edit-btn,
+  body.role-manager #vehiclesTable .edit-btn,
+  body.role-manager #leadsTable .row-edit-btn,
+  body.role-manager #inventoryTable .row-edit-btn,
+  body.role-manager #bookingsTable .edit-btn,
+  body.role-manager .emp-card [data-action="edit"],
+  body.role-manager [aria-label="Edit job card"],
+  body.role-manager [title="Edit job card"],
+  body.role-manager [title="Edit booking"],
+  body.role-manager [title="Edit expense"],
+  body.role-manager [title="Edit item"],
+  body.role-manager [title="Edit Lead"],
+  body.role-manager [title="Edit vehicle"] {
+    display: none !important;
+  }
+</style>
 </head>
-<body data-page="@yield('page-id')">
+<body data-page="@yield('page-id')" class="{{ (Auth::user()?->role === 'manager') ? 'role-manager' : '' }}">
 <div class="app">
 
 <!-- ============ SIDEBAR ============ -->

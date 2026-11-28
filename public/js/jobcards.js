@@ -882,6 +882,7 @@
 
   // ---------- Edit job card — vehicle/customer/service/staff/bay ----------
   async function openEditJobCardModal(card) {
+    if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
     document.getElementById('ejId').value = card.id;
     document.getElementById('ejCustomer').value = card.customer || '';
     document.getElementById('ejVehicle').value = card.vehicle || '';
