@@ -51,10 +51,10 @@
 
           <form id="loginForm" class="fp-form">
             <div class="fp-field">
-              <label for="user">Email or Username</label>
+              <label for="user">Email or Phone Number</label>
               <div class="fp-input">
                 <span class="fp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
-                <input id="user" type="email" placeholder="Email or Username" autocomplete="username" required>
+                <input id="user" type="text" placeholder="Email or Phone Number" autocomplete="username" required>
               </div>
             </div>
 
@@ -118,7 +118,18 @@
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('sw_user_role', 'admin');
+        if (data.user) {
+          localStorage.setItem('sw_user', JSON.stringify(data.user));
+          localStorage.setItem('sw_user_role', data.user.role || 'admin');
+          if (data.user.assigned_branch) {
+            localStorage.setItem('sw_branch', data.user.assigned_branch.name);
+            if (data.user.assigned_branch.code) {
+              localStorage.setItem('sw_branch_code', data.user.assigned_branch.code);
+            }
+          }
+        } else {
+          localStorage.setItem('sw_user_role', 'admin');
+        }
         successAlert.querySelector('.msg-text').textContent = 'Success! Redirecting…';
         successAlert.style.display = 'flex';
         setTimeout(() => window.location.href = urlParams.get('redirect') || '/dashboard', 700);

@@ -88,15 +88,22 @@
     <form id="newJobCardForm">
       <div class="modal-body">
         <div class="modal-row">
+          <div class="field">
+            <label for="njPhone">Phone</label>
+            <input type="tel" id="njPhone" placeholder="e.g. 9876543210" autocomplete="off" inputmode="numeric">
+            <div id="njPhoneLoyalty" style="font-size:12px;color:#10B981;margin-top:4px;display:none;font-weight:600;"></div>
+          </div>
           <div class="field"><label for="njCustomer">Customer</label><input type="text" id="njCustomer" placeholder="e.g. Ravi Kumar"></div>
-          <div class="field"><label for="njVehicle">Vehicle</label><input type="text" id="njVehicle" required placeholder="e.g. Honda City"><div id="njVehicleLoyalty" style="font-size:12px;color:#10B981;margin-top:4px;display:none;font-weight:600;"></div></div>
         </div>
         <div class="modal-row">
+          <div class="field"><label for="njVehicle">Vehicle</label><input type="text" id="njVehicle" required placeholder="e.g. Honda City"><div id="njVehicleLoyalty" style="font-size:12px;color:#10B981;margin-top:4px;display:none;font-weight:600;"></div></div>
           <div class="field"><label for="njService">Service</label>
             <select id="njService" required>
               <option value="">Select a service</option>
             </select>
           </div>
+        </div>
+        <div class="modal-row">
           <div class="field"><label for="njBay">Bay</label>
             <select id="njBay">
               <option>Bay 1</option>
@@ -105,11 +112,11 @@
               <option>Bay 4</option>
             </select>
           </div>
-        </div>
-        <div class="field"><label for="njStaff">Assigned staff</label>
-          <select id="njStaff">
-            <option value="">Select staff</option>
-          </select>
+          <div class="field"><label for="njStaff">Assigned staff</label>
+            <select id="njStaff">
+              <option value="">Select staff</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="modal-footer">

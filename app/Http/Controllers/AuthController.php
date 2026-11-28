@@ -81,7 +81,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|string|email',
+            'email' => 'required|string',
             'password' => 'required|string',
         ]);
 
@@ -93,18 +93,48 @@ class AuthController extends Controller
             ], 422);
         }
 
-        if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember', false))) {
-            $user = Auth::user();
-            
-            if ($user->role === 'manager' && $request->input('source') !== 'app') {
-                Auth::logout();
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Manager accounts must log in via the mobile app.',
-                ], 403);
+        $login = trim($request->input('email'));
+        $password = $request->input('password');
+
+        // Allow logging in via email, phone number, username, or local phone email
+        $user = User::where('email', $login)->first();
+
+        if (!$user) {
+            $cleanPhone = preg_replace('/[^0-9]/', '', $login);
+            if (!empty($cleanPhone)) {
+                $user = User::where('email', $cleanPhone . '@carwash.local')
+                    ->orWhere('email', 'LIKE', $cleanPhone . '@%')
+                    ->first();
+
+                if (!$user) {
+                    $staff = \App\Models\Staff::where('phone', $cleanPhone)
+                        ->orWhere('phone', $login)
+                        ->first();
+                    if ($staff) {
+                        if (!empty($staff->email)) {
+                            $user = User::where('email', $staff->email)->first();
+                        }
+                        if (!$user) {
+                            $user = User::where('email', $staff->phone . '@carwash.local')->first();
+                        }
+                    }
+                }
             }
 
-            $request->session()->regenerate();
+            if (!$user) {
+                // Try matching username/name
+                $user = User::where('name', $login)->first();
+            }
+        }
+
+        $emailToAttempt = $user ? $user->email : $login;
+
+        if (Auth::attempt(['email' => $emailToAttempt, 'password' => $password], $request->boolean('remember', false))) {
+            $user = Auth::user();
+
+            if ($request->hasSession()) {
+                $request->session()->regenerate();
+            }
             $user->load('assignedBranch');
 
             return response()->json([

@@ -46,6 +46,9 @@
       var data = await res.json();
       if (data.status === 'success' && data.user) {
         localStorage.setItem('sw_user', JSON.stringify(data.user));
+        if (typeof window.updateUserUI === 'function') {
+          window.updateUserUI(data.user);
+        }
       }
     }
   } catch (err) {
@@ -394,6 +397,63 @@ document.addEventListener('click', function (e) {
     });
   }
 
+  function updateUserUI(user) {
+    if (!user) return;
+    try {
+      var nameLabel = document.getElementById('userNameLabel');
+      var emailLabel = document.getElementById('userEmailLabel');
+      var toggleAvatar = document.querySelector('#userToggle .avatar') || document.getElementById('userToggle');
+      var dropdownAvatar = document.querySelector('#userMenu .avatar');
+      var dropdownName = document.querySelector('#userMenu .dropdown-user-name');
+      var dropdownEmail = document.querySelector('#userMenu .dropdown-user-email');
+
+      if (nameLabel && user.name) nameLabel.textContent = user.name;
+      if (emailLabel && user.email) emailLabel.textContent = user.email;
+      var roleLabel = document.getElementById('userRoleLabel');
+      if (roleLabel) roleLabel.textContent = user.role === 'manager' ? 'Manager' : 'Admin';
+      if (user.role === 'manager') {
+        document.body.classList.add('role-manager');
+      } else {
+        document.body.classList.remove('role-manager');
+      }
+      if (dropdownName && user.name) dropdownName.textContent = user.name;
+      if (dropdownEmail && user.email) dropdownEmail.textContent = user.email;
+
+      var initials = '';
+      if (user.name) {
+        var parts = user.name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+          initials = (parts[0][0] + parts[1][0]).toUpperCase();
+        } else if (parts.length === 1) {
+          initials = parts[0].slice(0, 2).toUpperCase();
+        }
+      }
+      if (initials) {
+        if (toggleAvatar) toggleAvatar.textContent = initials;
+        if (dropdownAvatar) dropdownAvatar.textContent = initials;
+      }
+
+      var profName = document.getElementById('profileName');
+      var profEmail = document.getElementById('profileEmail');
+      var profRole = document.getElementById('profileRole');
+      var profJoined = document.getElementById('profileJoined');
+      var profAvatar = document.querySelector('#profileModal .avatar');
+
+      if (profName && user.name) profName.textContent = user.name;
+      if (profEmail && user.email) profEmail.textContent = user.email;
+      if (profRole) profRole.textContent = user.role === 'manager' ? 'Manager' : 'Administrator';
+      if (profJoined && user.created_at) {
+        var date = new Date(user.created_at);
+        var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        profJoined.textContent = months[date.getMonth()] + ' ' + date.getFullYear();
+      }
+      if (profAvatar && initials) profAvatar.textContent = initials;
+    } catch (e) {
+      console.error('Error updating user UI:', e);
+    }
+  }
+  window.updateUserUI = updateUserUI;
+
   function initUserMenu() {
     var logout = document.getElementById('logoutBtn');
     if (!logout) return;
@@ -401,25 +461,7 @@ document.addEventListener('click', function (e) {
     try {
       var rawUser = localStorage.getItem('sw_user');
       if (rawUser) {
-        var user = JSON.parse(rawUser);
-
-        var nameLabel = document.getElementById('userNameLabel');
-        var emailLabel = document.getElementById('userEmailLabel');
-        var toggleAvatar = document.querySelector('#userToggle .avatar') || document.getElementById('userToggle');
-        var dropdownAvatar = document.querySelector('#userMenu .avatar');
-        var dropdownName = document.querySelector('#userMenu .dropdown-user-name');
-        var dropdownEmail = document.querySelector('#userMenu .dropdown-user-email');
-
-        if (nameLabel) nameLabel.textContent = user.name;
-        if (emailLabel) emailLabel.textContent = user.email;
-        var roleLabel = document.getElementById('userRoleLabel');
-        if (roleLabel) roleLabel.textContent = user.role === 'manager' ? 'Manager' : 'Admin';
-        if (dropdownName) dropdownName.textContent = user.name;
-        if (dropdownEmail) dropdownEmail.textContent = user.email;
-
-        var initials = user.name.split(' ').map(function (n) { return n[0]; }).join('').toUpperCase().slice(0, 2);
-        if (toggleAvatar) toggleAvatar.textContent = initials;
-        if (dropdownAvatar) dropdownAvatar.textContent = initials;
+        updateUserUI(JSON.parse(rawUser));
       }
     } catch (e) {
       console.error(e);
@@ -434,24 +476,7 @@ document.addEventListener('click', function (e) {
         try {
           var rawUser = localStorage.getItem('sw_user');
           if (rawUser) {
-            var user = JSON.parse(rawUser);
-            var joinedDate = 'July 2026';
-            if (user.created_at) {
-              var date = new Date(user.created_at);
-              var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-              joinedDate = months[date.getMonth()] + ' ' + date.getFullYear();
-            }
-
-            var profName = document.getElementById('profileName');
-            var profEmail = document.getElementById('profileEmail');
-            var profJoined = document.getElementById('profileJoined');
-            var profAvatar = document.querySelector('#profileModal .avatar');
-            var initials = user.name.split(' ').map(function (n) { return n[0]; }).join('').toUpperCase().slice(0, 2);
-
-            if (profName) profName.textContent = user.name;
-            if (profEmail) profEmail.textContent = user.email;
-            if (profJoined) profJoined.textContent = joinedDate;
-            if (profAvatar) profAvatar.textContent = initials;
+            updateUserUI(JSON.parse(rawUser));
           }
         } catch (err) {
           console.error(err);

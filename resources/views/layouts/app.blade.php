@@ -10,8 +10,35 @@
 <link rel="stylesheet" href="{{ asset('css/common.css') }}?v={{ filemtime(public_path('css/common.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v={{ filemtime(public_path('css/shell.css')) }}">
 @yield('styles')
+<style>
+  /* Manager role: hide all edit buttons and options across all screens */
+  body.role-manager .service-edit-btn,
+  body.role-manager .stf-edit-btn,
+  body.role-manager [data-action="edit"],
+  body.role-manager #previewEditBtn,
+  body.role-manager .inv-btn-edit,
+  body.role-manager .wl-edit-btn,
+  body.role-manager .edit-booking-btn,
+  body.role-manager .jc-edit-btn,
+  body.role-manager .exp-action-btn.edit,
+  body.role-manager #crmTable .edit-btn,
+  body.role-manager #vehiclesTable .edit-btn,
+  body.role-manager #leadsTable .row-edit-btn,
+  body.role-manager #inventoryTable .row-edit-btn,
+  body.role-manager #bookingsTable .edit-btn,
+  body.role-manager .emp-card [data-action="edit"],
+  body.role-manager [aria-label="Edit job card"],
+  body.role-manager [title="Edit job card"],
+  body.role-manager [title="Edit booking"],
+  body.role-manager [title="Edit expense"],
+  body.role-manager [title="Edit item"],
+  body.role-manager [title="Edit Lead"],
+  body.role-manager [title="Edit vehicle"] {
+    display: none !important;
+  }
+</style>
 </head>
-<body data-page="@yield('page-id')">
+<body data-page="@yield('page-id')" class="{{ (Auth::user()?->role === 'manager') ? 'role-manager' : '' }}">
 <div class="app">
 
 <!-- ============ SIDEBAR ============ -->
@@ -94,14 +121,32 @@
       </div>
     
 
+      @php
+        $authUser = Auth::user();
+        $authName = $authUser ? $authUser->name : 'Admin User';
+        $authEmail = $authUser ? $authUser->email : 'admin@carwash.com';
+        $authRole = ($authUser && $authUser->role === 'manager') ? 'Manager' : 'Admin';
+        $authRoleLong = ($authUser && $authUser->role === 'manager') ? 'Manager' : 'Administrator';
+        $authInitials = 'SA';
+        if ($authUser && !empty($authUser->name)) {
+            $parts = array_values(array_filter(explode(' ', trim($authUser->name))));
+            if (count($parts) >= 2) {
+                $authInitials = strtoupper(substr($parts[0], 0, 1) . substr($parts[1], 0, 1));
+            } elseif (count($parts) === 1) {
+                $authInitials = strtoupper(substr($parts[0], 0, 2));
+            }
+        }
+        $authJoined = ($authUser && $authUser->created_at) ? $authUser->created_at->format('F Y') : 'July 2026';
+      @endphp
+
       <div class="dropdown topbar-user" id="userDropdown">
         <button type="button" class="topbar-user-toggle" id="userToggle" aria-label="Open account menu">
-          <span class="avatar">SA</span>
-          <span class="topbar-user-details"><strong id="userNameLabel">Admin User</strong><small id="userRoleLabel">Admin</small></span>
+          <span class="avatar">{{ $authInitials }}</span>
+          <span class="topbar-user-details"><strong id="userNameLabel">{{ $authName }}</strong><small id="userRoleLabel">{{ $authRole }}</small></span>
           <svg class="topbar-user-caret" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"/></svg>
         </button>
         <div class="dropdown-menu sidebar-user-menu topbar-user-menu" id="userMenu">
-          <div class="dropdown-user"><div class="avatar">SA</div><div><div class="dropdown-user-name">Admin User</div><div class="dropdown-user-email">admin@carwash.com</div></div></div>
+          <div class="dropdown-user"><div class="avatar">{{ $authInitials }}</div><div><div class="dropdown-user-name">{{ $authName }}</div><div class="dropdown-user-email">{{ $authEmail }}</div></div></div>
           <div class="dropdown-divider"></div>
           <div class="dropdown-item" id="profileBtn"><i class="ti ti-id-badge-2"></i>My profile</div>
           <div class="dropdown-divider"></div>
@@ -129,18 +174,18 @@
     </div>
     <div class="modal-body profile-modal-body">
       <div class="profile-card">
-        <div class="avatar profile-avatar">SA</div>
-        <h3 class="profile-name" id="profileName">Admin User</h3>
-        <p class="profile-role" id="profileRole">Administrator</p>
+        <div class="avatar profile-avatar">{{ $authInitials }}</div>
+        <h3 class="profile-name" id="profileName">{{ $authName }}</h3>
+        <p class="profile-role" id="profileRole">{{ $authRoleLong }}</p>
       </div>
       <div class="profile-details">
         <div class="profile-detail-row">
           <span class="profile-detail-label">Email Address</span>
-          <span class="profile-detail-value" id="profileEmail">admin@carwash.com</span>
+          <span class="profile-detail-value" id="profileEmail">{{ $authEmail }}</span>
         </div>
         <div class="profile-detail-row">
           <span class="profile-detail-label">Member Since</span>
-          <span class="profile-detail-value" id="profileJoined">July 2026</span>
+          <span class="profile-detail-value" id="profileJoined">{{ $authJoined }}</span>
         </div>
       </div>
     </div>
@@ -159,6 +204,15 @@
   </div>
 </div>
 
+<script>
+  window.AUTH_USER = {
+    id: {{ $authUser?->id ?? 0 }},
+    name: @json($authUser?->name ?? ''),
+    email: @json($authUser?->email ?? ''),
+    role: @json($authUser?->role ?? 'admin')
+  };
+  window.AUTH_USER_ROLE = @json($authUser?->role ?? 'admin');
+</script>
 <script src="{{ asset('js/common.js') }}?v={{ filemtime(public_path('js/common.js')) }}"></script>
 @yield('scripts')
 </body>

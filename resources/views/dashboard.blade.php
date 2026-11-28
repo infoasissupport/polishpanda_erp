@@ -157,6 +157,7 @@
             <label for="nbPhone">Phone</label>
             <input type="tel" id="nbPhone" inputmode="numeric" pattern="[0-9]*" maxlength="15" oninput="this.value = this.value.replace(/[^0-9]/g, '')" placeholder="Phone" autocomplete="off">
             <div id="nbPhoneDropdown" class="autocomplete-dropdown" style="display:none; position:absolute; top:100%; left:0; width:100%; background:#fff; border:1px solid #e2e8f0; z-index:100; max-height:200px; overflow-y:auto; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-top:4px;"></div>
+            <div id="nbPhoneLoyalty" style="font-size:12px;color:#10B981;margin-top:4px;display:none;font-weight:600;"></div>
           </div>
           
           <div class="field"><label for="nbVehicle">Vehicle Name</label><input type="text" id="nbVehicle" placeholder="Vehicle Name"></div>
@@ -215,6 +216,10 @@
     
           <div class="field"><label for="nbDate">Date</label><input type="date" id="nbDate"></div>
             <div class="field"><label for="nbTime">Time</label><input type="time" id="nbTime"></div>
+        </div>
+        <div id="nbPastDateNotice" style="display:none;margin-top:6px;margin-bottom:12px;padding:8px 12px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:10px;font-size:12.5px;color:#92400E;display:flex;align-items:center;gap:8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#d97706;flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span><strong>Previous Day Appointment:</strong> All flow dates (Queue arrival, Job Card, Invoice &amp; Payment date) will be recorded as <strong id="nbPastDateLabel"></strong>.</span>
         </div>
          <div class="field">
           <label>Before Photos</label>

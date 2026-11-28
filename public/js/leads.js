@@ -995,6 +995,7 @@
   }
 
   function openEditModal(lead) {
+    if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
     if (!lead) return;
     currentEditingLeadId = lead.id;
     leadForm.reset();

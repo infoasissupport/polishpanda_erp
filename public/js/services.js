@@ -375,6 +375,7 @@
   }
 
   function openEdit(id) {
+    if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
     var svc = findService(id);
     if (!svc) return;
     editingId = id;

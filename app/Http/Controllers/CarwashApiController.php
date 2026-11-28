@@ -75,6 +75,26 @@ class CarwashApiController extends Controller
         return $query;
     }
 
+    private function normalizePhone(?string $phone): string
+    {
+        if (!$phone) {
+            return '';
+        }
+        $digits = preg_replace('/\D+/', '', $phone);
+        if (strlen($digits) > 10) {
+            return substr($digits, -10);
+        }
+        return $digits;
+    }
+
+    private function normalizePlate(?string $plate): string
+    {
+        if (!$plate) {
+            return '';
+        }
+        return strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', $plate));
+    }
+
     /**
      * Get global settings, branches, notifications and chats.
      */
@@ -479,6 +499,13 @@ FILES:
             'reminder_note' => 'nullable|string',
         ]);
 
+        if (Auth::user()?->role === 'manager') {
+            $bookingDateStr = $validated['booking_date'] ?? now()->toDateString();
+            if (\Carbon\Carbon::parse($bookingDateStr)->isBefore(today())) {
+                return response()->json(['message' => 'Managers cannot create appointments for previous dates.'], 422);
+            }
+        }
+
         $userId = $this->currentUserId();
 
         if (!empty($validated['vehicle_plate'])) {
@@ -503,10 +530,16 @@ FILES:
             [$minutes, $timeLabel] = $this->formatTimeLabel($validated['time']);
             $branchId = $validated['branch_id'] ?? $this->defaultBranchId();
 
-            $booking = Booking::create([
+            $bookingDateStr = $validated['booking_date'] ?? now()->toDateString();
+            $isPastBooking = \Carbon\Carbon::parse($bookingDateStr)->isBefore(today());
+            $bookingCreatedAt = $isPastBooking
+                ? \Carbon\Carbon::parse($bookingDateStr . ' ' . $validated['time'])
+                : now();
+
+            $booking = new Booking([
                 'user_id' => $userId,
                 'branch_id' => $branchId,
-                'booking_date' => $validated['booking_date'] ?? now()->toDateString(),
+                'booking_date' => $bookingDateStr,
                 'customer' => $validated['customer'],
                 'phone' => $validated['phone'] ?? null,
                 'vehicle' => $validated['vehicle'] ?? null,
@@ -525,14 +558,19 @@ FILES:
                 'minutes' => $minutes,
                 'time_label' => $timeLabel,
             ]);
+            if ($isPastBooking) {
+                $booking->created_at = $bookingCreatedAt;
+                $booking->updated_at = $bookingCreatedAt;
+            }
+            $booking->save();
 
             $customer = $this->findOrCreateCustomerFromBooking($validated, $userId);
 
             if ($customer) {
                 $customer->forceFill([
-                    'last_visit' => 'Today',
-                    'last_visit_at' => now(),
-                    'follow_up_due_at' => now()->addDays(14),
+                    'last_visit' => $isPastBooking ? \Carbon\Carbon::parse($bookingDateStr)->format('d M Y') : 'Today',
+                    'last_visit_at' => $isPastBooking ? $bookingCreatedAt : now(),
+                    'follow_up_due_at' => ($isPastBooking ? $bookingCreatedAt->copy() : now())->addDays(14),
                 ])->save();
             }
 
@@ -578,6 +616,13 @@ FILES:
             'reminder_date' => 'nullable|date',
             'reminder_note' => 'nullable|string',
         ]);
+
+        if (Auth::user()?->role === 'manager') {
+            $bookingDateStr = $validated['booking_date'] ?? now()->toDateString();
+            if (\Carbon\Carbon::parse($bookingDateStr)->isBefore(today())) {
+                return response()->json(['message' => 'Managers cannot create appointments for previous dates.'], 422);
+            }
+        }
 
         $userId = $this->currentUserId();
         $booking = $this->applyBranchFilter(Booking::where('user_id', $userId), request())->findOrFail($id);
@@ -682,6 +727,10 @@ FILES:
 
     public function updateCustomer(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit customers.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
@@ -884,6 +933,10 @@ FILES:
 
     public function updateLead(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit leads.'], 403);
+        }
+
         $userId = $this->currentUserId();
         $lead = Lead::where('user_id', $userId)->findOrFail($id);
 
@@ -1167,12 +1220,32 @@ FILES:
 
         $jobCards = \App\Models\JobCard::where('user_id', $userId)
             ->where('stage', 'completed')
-            ->get(['vehicle', 'service']);
+            ->get(['phone', 'vehicle', 'service']);
+
+        $washesByPhone = [];
+        $servicesByPhone = [];
+        foreach ($jobCards as $jc) {
+            $norm = $this->normalizePhone($jc->phone);
+            if ($norm !== '') {
+                $washesByPhone[$norm] = ($washesByPhone[$norm] ?? 0) + 1;
+                foreach (explode(',', (string) $jc->service) as $service) {
+                    $service = trim($service);
+                    if ($service !== '') {
+                        $servicesByPhone[$norm][strtolower($service)] = $service;
+                    }
+                }
+            }
+        }
 
         foreach ($vehicles as $v) {
             $count = 0;
             $services = [];
-            if ($v->plate) {
+            $custPhone = $v->customer ? $this->normalizePhone($v->customer->phone) : '';
+
+            if ($custPhone !== '' && isset($washesByPhone[$custPhone])) {
+                $count = $washesByPhone[$custPhone];
+                $services = $servicesByPhone[$custPhone] ?? [];
+            } elseif ($v->plate) {
                 foreach ($jobCards as $jc) {
                     if (stripos($jc->vehicle, $v->plate) !== false) {
                         $count++;
@@ -1203,6 +1276,10 @@ FILES:
 
     public function updateVehicle(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit vehicles.'], 403);
+        }
+
         $validated = $request->validate([
             'brand' => 'required|string|max:255',
             'colour' => 'nullable|string|max:255',
@@ -1220,37 +1297,82 @@ FILES:
 
     public function getLoyalty(Request $request)
     {
-        $vehicle = $request->query('vehicle');
         $phone = $request->query('phone');
+        $vehicle = $request->query('vehicle');
         $userId = $this->currentUserId();
 
-        if (!$vehicle && !$phone) {
-            return response()->json(['count' => 0]);
+        if (!$phone && !$vehicle) {
+            return response()->json(['count' => 0, 'customer' => null]);
         }
 
-        $query = JobCard::where('user_id', $userId)->where('stage', 'completed');
+        $customer = null;
+        $normPhone = '';
 
-        if ($vehicle) {
-            $norm = $this->normalizePlate($vehicle);
-            if (strlen($norm) >= 3) {
-                $completed = $this->applyBranchFilter($query, $request)->pluck('vehicle');
-                $count = 0;
-                foreach ($completed as $jcVeh) {
-                    $normJc = $this->normalizePlate($jcVeh);
-                    if (strpos($normJc, $norm) !== false) {
+        if ($phone) {
+            $normPhone = $this->normalizePhone($phone);
+            if (strlen($normPhone) >= 4) {
+                $customer = Customer::where('user_id', $userId)
+                    ->where(function ($q) use ($normPhone) {
+                        $q->where('phone', 'LIKE', '%' . $normPhone)
+                          ->orWhere('phone', $normPhone);
+                    })
+                    ->with('vehicles')
+                    ->first();
+            }
+        } elseif ($vehicle) {
+            $normPlate = $this->normalizePlate($vehicle);
+            if (strlen($normPlate) >= 3) {
+                $vRecord = Vehicle::where('user_id', $userId)
+                    ->where(function ($q) use ($normPlate, $vehicle) {
+                        $q->where('plate', 'LIKE', '%' . $vehicle . '%')
+                          ->orWhere('plate', 'LIKE', '%' . $normPlate . '%');
+                    })
+                    ->with('customer.vehicles')
+                    ->first();
+
+                if ($vRecord && $vRecord->customer) {
+                    $customer = $vRecord->customer;
+                    $normPhone = $this->normalizePhone($customer->phone);
+                }
+            }
+        }
+
+        $count = 0;
+        if ($normPhone !== '') {
+            $completedJcs = $this->applyBranchFilter(
+                JobCard::where('user_id', $userId)->where('stage', 'completed'),
+                $request
+            )->get(['phone']);
+
+            foreach ($completedJcs as $jc) {
+                if (!empty($jc->phone)) {
+                    $jcNorm = $this->normalizePhone($jc->phone);
+                    if ($jcNorm === $normPhone || (strlen($normPhone) >= 5 && str_ends_with($jcNorm, $normPhone))) {
                         $count++;
                     }
                 }
-                return response()->json(['count' => $count]);
-            } else {
-                $query->where('vehicle', 'LIKE', '%' . $vehicle . '%');
             }
-        } elseif ($phone) {
-            $query->where('phone', $phone);
+        } elseif ($vehicle) {
+            $normPlate = $this->normalizePlate($vehicle);
+            if (strlen($normPlate) >= 3) {
+                $completed = $this->applyBranchFilter(
+                    JobCard::where('user_id', $userId)->where('stage', 'completed'),
+                    $request
+                )->pluck('vehicle');
+
+                foreach ($completed as $jcVeh) {
+                    $normJc = $this->normalizePlate($jcVeh);
+                    if (strpos($normJc, $normPlate) !== false) {
+                        $count++;
+                    }
+                }
+            }
         }
 
-        $count = $this->applyBranchFilter($query, $request)->count();
-        return response()->json(['count' => $count]);
+        return response()->json([
+            'count' => $count,
+            'customer' => $customer
+        ]);
     }
 
     /**
@@ -1314,6 +1436,10 @@ FILES:
 
     public function updateService(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit services.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'desc' => 'nullable|string',
@@ -1476,18 +1602,48 @@ FILES:
         // Auto-create/sync User account if role is manager
         if (isset($validated['role']) && $validated['role'] === 'manager') {
             $email = $request->input('email') ?: ($validated['phone'] . '@carwash.local');
-            $branch = $this->applyBranchFilter(\App\Models\Branch::where('user_id', $userId), request())->where('name', $validated['branch'])->first();
+            $branch = Branch::where('user_id', $userId)->where('name', $validated['branch'])->first()
+                ?? Branch::where('user_id', $userId)->find($staff->branch_id)
+                ?? Branch::where('user_id', $userId)->first()
+                ?? Branch::where('name', $validated['branch'])->first()
+                ?? Branch::find($staff->branch_id)
+                ?? Branch::first();
             $pass = $request->input('password') ?: 'password123';
-            \App\Models\User::firstOrCreate(
-                ['email' => $email],
-                [
+
+            $user = \App\Models\User::where('owner_id', $userId)
+                ->where(function ($q) use ($email, $validated) {
+                    $q->where('email', $email)
+                        ->orWhere('name', $validated['name']);
+                })
+                ->where('role', 'manager')
+                ->first();
+
+            if (!$user) {
+                $user = \App\Models\User::where('email', $email)->first();
+            }
+
+            if ($user) {
+                $userUpdate = [
                     'name' => $validated['name'],
+                    'email' => $email,
+                    'role' => 'manager',
+                    'owner_id' => $userId,
+                    'assigned_branch_id' => $branch ? $branch->id : null,
+                ];
+                if ($request->filled('password')) {
+                    $userUpdate['password'] = \Illuminate\Support\Facades\Hash::make($pass);
+                }
+                $user->update($userUpdate);
+            } else {
+                \App\Models\User::create([
+                    'name' => $validated['name'],
+                    'email' => $email,
                     'password' => \Illuminate\Support\Facades\Hash::make($pass),
                     'role' => 'manager',
                     'owner_id' => $userId,
-                    'assigned_branch_id' => $branch ? $branch->id : null
-                ]
-            );
+                    'assigned_branch_id' => $branch ? $branch->id : null,
+                ]);
+            }
         }
         // Record attendance for selected date
         $date = $request->input('date') ?: today()->toDateString();
@@ -1507,6 +1663,10 @@ FILES:
 
     public function updateStaff(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit staff.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'first_name' => 'nullable|string|max:255',
@@ -1595,7 +1755,12 @@ FILES:
         // Auto-create/sync User account if role is manager
         if (isset($validated['role']) && $validated['role'] === 'manager') {
             $email = $request->input('email') ?: ($validated['phone'] . '@carwash.local');
-            $branch = $this->applyBranchFilter(\App\Models\Branch::where('user_id', $userId), request())->where('name', $validated['branch'])->first();
+            $branch = Branch::where('user_id', $userId)->where('name', $validated['branch'])->first()
+                ?? Branch::where('user_id', $userId)->find($staff->branch_id)
+                ?? Branch::where('user_id', $userId)->first()
+                ?? Branch::where('name', $validated['branch'])->first()
+                ?? Branch::find($staff->branch_id)
+                ?? Branch::first();
 
             $user = \App\Models\User::where('owner_id', $userId)
                 ->where(function ($q) use ($email, $validated) {
@@ -1605,11 +1770,17 @@ FILES:
                 ->where('role', 'manager')
                 ->first();
 
+            if (!$user) {
+                $user = \App\Models\User::where('email', $email)->first();
+            }
+
             $pass = $request->input('password') ?: null;
             if ($user) {
                 $updateData = [
                     'name' => $validated['name'],
                     'email' => $email,
+                    'role' => 'manager',
+                    'owner_id' => $userId,
                     'assigned_branch_id' => $branch ? $branch->id : null
                 ];
                 if ($pass) {
@@ -1626,6 +1797,17 @@ FILES:
                     'assigned_branch_id' => $branch ? $branch->id : null
                 ]);
             }
+        } elseif (isset($validated['role']) && $validated['role'] !== 'manager' && $staff->role === 'manager') {
+            \App\Models\User::where('owner_id', $userId)
+                ->where('role', 'manager')
+                ->where(function ($q) use ($staff) {
+                    if ($staff->email) {
+                        $q->where('email', $staff->email);
+                    } else {
+                        $q->where('name', $staff->name);
+                    }
+                })
+                ->delete();
         }
         // Return status matching date
         $staff->attendance = $status;
@@ -1798,6 +1980,10 @@ FILES:
 
     public function updateExpense(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit expenses.'], 403);
+        }
+
         $validated = $request->validate([
             'category' => 'nullable|string|max:255',
             'name' => 'nullable|string|max:255',
@@ -1924,6 +2110,10 @@ FILES:
 
     public function updateInventory(Request $request, $id)
     {
+        if (Auth::user()?->role === 'manager') {
+            return response()->json(['message' => 'Managers cannot edit products or inventory.'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -2011,6 +2201,17 @@ FILES:
 
         $userId = $this->currentUserId();
 
+        if (empty($validated['customer']) && !empty($validated['phone'])) {
+            $normP = $this->normalizePhone($validated['phone']);
+            $existingCust = Customer::where('user_id', $userId)
+                ->where(function ($q) use ($normP, $validated) {
+                    $q->where('phone', $validated['phone'])->orWhere('phone', 'LIKE', '%' . $normP);
+                })->first();
+            if ($existingCust) {
+                $validated['customer'] = $existingCust->name;
+            }
+        }
+
         if (!empty($validated['vehicle'])) {
             $existingJc = \App\Models\JobCard::where('user_id', $userId)
                 ->whereIn('stage', ['assigned', 'inprogress'])
@@ -2067,11 +2268,35 @@ FILES:
             $cardData['branch_id'] = $validated['branch_id'] ?? ($booking->branch_id ?? $this->defaultBranchId());
         }
 
-        if (Schema::hasColumn('job_cards', 'started_at_at')) {
+        $isPastBooking = false;
+        $pastCreatedAt = null;
+        if ($booking && $booking->booking_date) {
+            $bDate = \Carbon\Carbon::parse($booking->booking_date);
+            if ($bDate->isBefore(today())) {
+                $isPastBooking = true;
+                $timeStr = $booking->time_label ?: '12:00';
+                $pastCreatedAt = \Carbon\Carbon::parse($bDate->format('Y-m-d') . ' ' . $timeStr);
+            }
+        } elseif ($booking && $booking->created_at && $booking->created_at->isBefore(today())) {
+            $isPastBooking = true;
+            $pastCreatedAt = $booking->created_at;
+        }
+
+        if ($isPastBooking && $pastCreatedAt) {
+            $cardData['started_at'] = $pastCreatedAt->format('H:i');
+            if (Schema::hasColumn('job_cards', 'started_at_at')) {
+                $cardData['started_at_at'] = $pastCreatedAt;
+            }
+        } elseif (Schema::hasColumn('job_cards', 'started_at_at')) {
             $cardData['started_at_at'] = now();
         }
 
-        $card = JobCard::create($cardData);
+        $card = new JobCard($cardData);
+        if ($isPastBooking && $pastCreatedAt) {
+            $card->created_at = $pastCreatedAt;
+            $card->updated_at = $pastCreatedAt;
+        }
+        $card->save();
 
         if ($booking) {
             $booking->update(['status' => 'inprogress']);
@@ -2135,7 +2360,11 @@ FILES:
 
         $wasCompleted = $card->stage === 'completed';
         if (($validated['stage'] ?? null) === 'completed' && Schema::hasColumn('job_cards', 'completed_at_at') && !$card->completed_at_at) {
-            $validated['completed_at_at'] = now();
+            if ($card->created_at && $card->created_at->isBefore(today())) {
+                $validated['completed_at_at'] = $card->created_at->copy()->addMinutes(45);
+            } else {
+                $validated['completed_at_at'] = now();
+            }
         }
 
         if (!Schema::hasColumn('job_cards', 'branch_id')) {
@@ -2343,7 +2572,15 @@ FILES:
 
         $jobCards = \App\Models\JobCard::where('user_id', $userId)
             ->where('stage', 'completed')
-            ->pluck('vehicle');
+            ->get(['phone', 'vehicle']);
+
+        $washesByPhone = [];
+        foreach ($jobCards as $jc) {
+            $norm = $this->normalizePhone($jc->phone);
+            if ($norm !== '') {
+                $washesByPhone[$norm] = ($washesByPhone[$norm] ?? 0) + 1;
+            }
+        }
 
         $lastWashByPlate = Vehicle::where('user_id', $userId)
             ->whereNotNull('plate')
@@ -2359,13 +2596,19 @@ FILES:
         foreach ($invoices as $inv) {
             $count = 0;
             $lastWash = null;
-            if (!empty($inv->vehicle)) {
+            $invNormPhone = $this->normalizePhone($inv->phone);
+            if ($invNormPhone !== '' && isset($washesByPhone[$invNormPhone])) {
+                $count = $washesByPhone[$invNormPhone];
+            } elseif (!empty($inv->vehicle)) {
                 $plate = explode(' ', $inv->vehicle)[0];
-                foreach ($jobCards as $jcVehicle) {
-                    if (stripos($jcVehicle, $plate) !== false) {
+                foreach ($jobCards as $jc) {
+                    if (!empty($jc->vehicle) && stripos($jc->vehicle, $plate) !== false) {
                         $count++;
                     }
                 }
+            }
+            if (!empty($inv->vehicle)) {
+                $plate = explode(' ', $inv->vehicle)[0];
                 $lastWash = $lastWashByPlate[strtolower($plate)] ?? null;
             }
             $inv->loyalty_count = $count;
@@ -2493,14 +2736,15 @@ FILES:
             'payment_reference' => 'nullable|string|max:255',
             'paid_at' => 'nullable|date',
             'due_at' => 'nullable|date',
-            'discount_amount' => 'nullable|integer',
-            'amount' => 'nullable|integer',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'subtotal' => 'nullable|numeric|min:0',
+            'amount' => 'nullable|numeric|min:0',
             'split_cash' => 'nullable|numeric',
             'split_upi' => 'nullable|numeric',
             'date' => 'nullable|string',
             'item_name' => 'nullable|string|max:255',
-            'item_price' => 'nullable|integer',
-            'item_quantity' => 'nullable|integer|min:1',
+            'item_price' => 'nullable|numeric',
+            'item_quantity' => 'nullable|numeric|min:0.01',
             'product_id' => 'nullable|integer|exists:inventory_items,id',
             'items' => 'nullable|array',
             'items.*.name' => 'nullable|string|max:255',
@@ -2514,42 +2758,78 @@ FILES:
         $userId = $this->currentUserId();
         $invoice = $this->applyBranchFilter(Invoice::where('user_id', $userId), request())->findOrFail($id);
 
-        if (isset($validated['status'])) {
-            $invoice->status = $validated['status'];
-            $invoice->payment_status = $validated['status'];
-            if ($validated['status'] === 'paid') {
-                $invoice->paid_at = $validated['paid_at'] ?? now();
-                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
+        if (Auth::user()?->role === 'manager') {
+            if ($invoice->status === 'paid' || ($request->has('status') && $request->input('status') !== 'paid') || $request->has('items') || $request->has('subtotal')) {
+                return response()->json(['message' => 'Action not permitted for managers'], 403);
             }
         }
 
-        if (isset($validated['payment_status'])) {
-            $invoice->payment_status = $validated['payment_status'];
-            $invoice->status = $validated['payment_status'];
-            if ($validated['payment_status'] === 'paid') {
-                $invoice->paid_at = $validated['paid_at'] ?? now();
-                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
-            }
-        }
+        $targetStatus = $validated['status'] ?? ($validated['payment_status'] ?? null);
+        if ($targetStatus !== null) {
+            $invoice->status = $targetStatus;
+            $invoice->payment_status = $targetStatus;
 
-        if (isset($validated['method'])) {
-            $invoice->method = $validated['method'];
+            if ($targetStatus === 'paid') {
+                if (Auth::user()?->role === 'manager' && !empty($validated['paid_at']) && \Carbon\Carbon::parse($validated['paid_at'])->isBefore(today())) {
+                    $validated['paid_at'] = now();
+                    $validated['date'] = now()->format('d M Y');
+                }
+                $invoice->paid_at = !empty($validated['paid_at']) ? $validated['paid_at'] : ($invoice->paid_at ?? now());
+                if (!empty($validated['date'])) {
+                    $invoice->date = $validated['date'];
+                } else {
+                    $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
+                }
+                if (\Carbon\Carbon::parse($invoice->paid_at)->isBefore(today())) {
+                    $invoice->created_at = $invoice->paid_at;
+                }
+                if (isset($validated['method'])) {
+                    $invoice->method = $validated['method'];
+                }
+                if (array_key_exists('split_cash', $validated)) {
+                    $invoice->split_cash = $validated['split_cash'];
+                }
+                if (array_key_exists('split_upi', $validated)) {
+                    $invoice->split_upi = $validated['split_upi'];
+                }
+            } elseif ($targetStatus === 'pending') {
+                $invoice->paid_at = null;
+                $invoice->method = 'pending';
+                $invoice->split_cash = null;
+                $invoice->split_upi = null;
+                $invoice->payment_reference = null;
+            }
+        } else {
+            if (isset($validated['method']) && $invoice->status === 'paid') {
+                $invoice->method = $validated['method'];
+            }
+            if (array_key_exists('split_cash', $validated) && $invoice->status === 'paid') {
+                $invoice->split_cash = $validated['split_cash'];
+            }
+            if (array_key_exists('split_upi', $validated) && $invoice->status === 'paid') {
+                $invoice->split_upi = $validated['split_upi'];
+            }
+            if (array_key_exists('paid_at', $validated) && $invoice->status === 'paid') {
+                $invoice->paid_at = $validated['paid_at'];
+                if ($invoice->paid_at) {
+                    $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
+                    if (\Carbon\Carbon::parse($invoice->paid_at)->isBefore(today())) {
+                        $invoice->created_at = $invoice->paid_at;
+                    }
+                }
+            }
         }
 
         if (array_key_exists('payment_reference', $validated)) {
             $invoice->payment_reference = $validated['payment_reference'];
         }
 
-        if (array_key_exists('split_cash', $validated)) {
-            $invoice->split_cash = $validated['split_cash'];
-        }
-
-        if (array_key_exists('split_upi', $validated)) {
-            $invoice->split_upi = $validated['split_upi'];
-        }
-
         if (array_key_exists('discount_amount', $validated)) {
             $invoice->discount_amount = $validated['discount_amount'];
+        }
+
+        if (array_key_exists('subtotal', $validated)) {
+            $invoice->subtotal = $validated['subtotal'];
         }
 
         if (array_key_exists('amount', $validated)) {
@@ -2560,14 +2840,7 @@ FILES:
             $invoice->due_at = $validated['due_at'];
         }
 
-        if (array_key_exists('paid_at', $validated)) {
-            $invoice->paid_at = $validated['paid_at'];
-            if ($invoice->paid_at && $invoice->status === 'paid') {
-                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
-            }
-        }
-
-        if (isset($validated['date'])) {
+        if (isset($validated['date']) && $invoice->status !== 'paid') {
             $invoice->date = $validated['date'];
         }
 
@@ -2850,6 +3123,10 @@ FILES:
         }
 
         $invoice = InvoiceCalculator::applyTo(new Invoice($invoiceData));
+        if ($card->created_at && $card->created_at->isBefore(today())) {
+            $invoice->created_at = $card->created_at;
+            $invoice->updated_at = $card->created_at;
+        }
         $invoice->save();
 
         if (Schema::hasColumn('job_cards', 'invoice_id')) {
@@ -3034,7 +3311,12 @@ FILES:
         $customer = null;
 
         if (!empty($validated['phone'])) {
-            $customer = $this->applyBranchFilter(Customer::where('user_id', $userId), request())->where('phone', $validated['phone'])->first();
+            $normPhone = $this->normalizePhone($validated['phone']);
+            $customer = $this->applyBranchFilter(Customer::where('user_id', $userId), request())
+                ->where(function ($q) use ($normPhone, $validated) {
+                    $q->where('phone', $validated['phone'])
+                      ->orWhere('phone', 'LIKE', '%' . $normPhone);
+                })->first();
         }
 
         if (!$customer) {

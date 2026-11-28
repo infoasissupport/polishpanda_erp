@@ -620,6 +620,7 @@
   }
 
   function openEdit(id) {
+    if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
     var e = findExpense(id);
     if (!e) return;
     editingId = id;
