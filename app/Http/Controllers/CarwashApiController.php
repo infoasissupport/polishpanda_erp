@@ -75,6 +75,26 @@ class CarwashApiController extends Controller
         return $query;
     }
 
+    private function normalizePhone(?string $phone): string
+    {
+        if (!$phone) {
+            return '';
+        }
+        $digits = preg_replace('/\D+/', '', $phone);
+        if (strlen($digits) > 10) {
+            return substr($digits, -10);
+        }
+        return $digits;
+    }
+
+    private function normalizePlate(?string $plate): string
+    {
+        if (!$plate) {
+            return '';
+        }
+        return strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', $plate));
+    }
+
     /**
      * Get global settings, branches, notifications and chats.
      */
@@ -1167,12 +1187,32 @@ FILES:
 
         $jobCards = \App\Models\JobCard::where('user_id', $userId)
             ->where('stage', 'completed')
-            ->get(['vehicle', 'service']);
+            ->get(['phone', 'vehicle', 'service']);
+
+        $washesByPhone = [];
+        $servicesByPhone = [];
+        foreach ($jobCards as $jc) {
+            $norm = $this->normalizePhone($jc->phone);
+            if ($norm !== '') {
+                $washesByPhone[$norm] = ($washesByPhone[$norm] ?? 0) + 1;
+                foreach (explode(',', (string) $jc->service) as $service) {
+                    $service = trim($service);
+                    if ($service !== '') {
+                        $servicesByPhone[$norm][strtolower($service)] = $service;
+                    }
+                }
+            }
+        }
 
         foreach ($vehicles as $v) {
             $count = 0;
             $services = [];
-            if ($v->plate) {
+            $custPhone = $v->customer ? $this->normalizePhone($v->customer->phone) : '';
+
+            if ($custPhone !== '' && isset($washesByPhone[$custPhone])) {
+                $count = $washesByPhone[$custPhone];
+                $services = $servicesByPhone[$custPhone] ?? [];
+            } elseif ($v->plate) {
                 foreach ($jobCards as $jc) {
                     if (stripos($jc->vehicle, $v->plate) !== false) {
                         $count++;
@@ -1220,37 +1260,82 @@ FILES:
 
     public function getLoyalty(Request $request)
     {
-        $vehicle = $request->query('vehicle');
         $phone = $request->query('phone');
+        $vehicle = $request->query('vehicle');
         $userId = $this->currentUserId();
 
-        if (!$vehicle && !$phone) {
-            return response()->json(['count' => 0]);
+        if (!$phone && !$vehicle) {
+            return response()->json(['count' => 0, 'customer' => null]);
         }
 
-        $query = JobCard::where('user_id', $userId)->where('stage', 'completed');
+        $customer = null;
+        $normPhone = '';
 
-        if ($vehicle) {
-            $norm = $this->normalizePlate($vehicle);
-            if (strlen($norm) >= 3) {
-                $completed = $this->applyBranchFilter($query, $request)->pluck('vehicle');
-                $count = 0;
-                foreach ($completed as $jcVeh) {
-                    $normJc = $this->normalizePlate($jcVeh);
-                    if (strpos($normJc, $norm) !== false) {
+        if ($phone) {
+            $normPhone = $this->normalizePhone($phone);
+            if (strlen($normPhone) >= 4) {
+                $customer = Customer::where('user_id', $userId)
+                    ->where(function ($q) use ($normPhone) {
+                        $q->where('phone', 'LIKE', '%' . $normPhone)
+                          ->orWhere('phone', $normPhone);
+                    })
+                    ->with('vehicles')
+                    ->first();
+            }
+        } elseif ($vehicle) {
+            $normPlate = $this->normalizePlate($vehicle);
+            if (strlen($normPlate) >= 3) {
+                $vRecord = Vehicle::where('user_id', $userId)
+                    ->where(function ($q) use ($normPlate, $vehicle) {
+                        $q->where('plate', 'LIKE', '%' . $vehicle . '%')
+                          ->orWhere('plate', 'LIKE', '%' . $normPlate . '%');
+                    })
+                    ->with('customer.vehicles')
+                    ->first();
+
+                if ($vRecord && $vRecord->customer) {
+                    $customer = $vRecord->customer;
+                    $normPhone = $this->normalizePhone($customer->phone);
+                }
+            }
+        }
+
+        $count = 0;
+        if ($normPhone !== '') {
+            $completedJcs = $this->applyBranchFilter(
+                JobCard::where('user_id', $userId)->where('stage', 'completed'),
+                $request
+            )->get(['phone']);
+
+            foreach ($completedJcs as $jc) {
+                if (!empty($jc->phone)) {
+                    $jcNorm = $this->normalizePhone($jc->phone);
+                    if ($jcNorm === $normPhone || (strlen($normPhone) >= 5 && str_ends_with($jcNorm, $normPhone))) {
                         $count++;
                     }
                 }
-                return response()->json(['count' => $count]);
-            } else {
-                $query->where('vehicle', 'LIKE', '%' . $vehicle . '%');
             }
-        } elseif ($phone) {
-            $query->where('phone', $phone);
+        } elseif ($vehicle) {
+            $normPlate = $this->normalizePlate($vehicle);
+            if (strlen($normPlate) >= 3) {
+                $completed = $this->applyBranchFilter(
+                    JobCard::where('user_id', $userId)->where('stage', 'completed'),
+                    $request
+                )->pluck('vehicle');
+
+                foreach ($completed as $jcVeh) {
+                    $normJc = $this->normalizePlate($jcVeh);
+                    if (strpos($normJc, $normPlate) !== false) {
+                        $count++;
+                    }
+                }
+            }
         }
 
-        $count = $this->applyBranchFilter($query, $request)->count();
-        return response()->json(['count' => $count]);
+        return response()->json([
+            'count' => $count,
+            'customer' => $customer
+        ]);
     }
 
     /**
@@ -2011,6 +2096,17 @@ FILES:
 
         $userId = $this->currentUserId();
 
+        if (empty($validated['customer']) && !empty($validated['phone'])) {
+            $normP = $this->normalizePhone($validated['phone']);
+            $existingCust = Customer::where('user_id', $userId)
+                ->where(function ($q) use ($normP, $validated) {
+                    $q->where('phone', $validated['phone'])->orWhere('phone', 'LIKE', '%' . $normP);
+                })->first();
+            if ($existingCust) {
+                $validated['customer'] = $existingCust->name;
+            }
+        }
+
         if (!empty($validated['vehicle'])) {
             $existingJc = \App\Models\JobCard::where('user_id', $userId)
                 ->whereIn('stage', ['assigned', 'inprogress'])
@@ -2343,7 +2439,15 @@ FILES:
 
         $jobCards = \App\Models\JobCard::where('user_id', $userId)
             ->where('stage', 'completed')
-            ->pluck('vehicle');
+            ->get(['phone', 'vehicle']);
+
+        $washesByPhone = [];
+        foreach ($jobCards as $jc) {
+            $norm = $this->normalizePhone($jc->phone);
+            if ($norm !== '') {
+                $washesByPhone[$norm] = ($washesByPhone[$norm] ?? 0) + 1;
+            }
+        }
 
         $lastWashByPlate = Vehicle::where('user_id', $userId)
             ->whereNotNull('plate')
@@ -2359,13 +2463,19 @@ FILES:
         foreach ($invoices as $inv) {
             $count = 0;
             $lastWash = null;
-            if (!empty($inv->vehicle)) {
+            $invNormPhone = $this->normalizePhone($inv->phone);
+            if ($invNormPhone !== '' && isset($washesByPhone[$invNormPhone])) {
+                $count = $washesByPhone[$invNormPhone];
+            } elseif (!empty($inv->vehicle)) {
                 $plate = explode(' ', $inv->vehicle)[0];
-                foreach ($jobCards as $jcVehicle) {
-                    if (stripos($jcVehicle, $plate) !== false) {
+                foreach ($jobCards as $jc) {
+                    if (!empty($jc->vehicle) && stripos($jc->vehicle, $plate) !== false) {
                         $count++;
                     }
                 }
+            }
+            if (!empty($inv->vehicle)) {
+                $plate = explode(' ', $inv->vehicle)[0];
                 $lastWash = $lastWashByPlate[strtolower($plate)] ?? null;
             }
             $inv->loyalty_count = $count;
@@ -3034,7 +3144,12 @@ FILES:
         $customer = null;
 
         if (!empty($validated['phone'])) {
-            $customer = $this->applyBranchFilter(Customer::where('user_id', $userId), request())->where('phone', $validated['phone'])->first();
+            $normPhone = $this->normalizePhone($validated['phone']);
+            $customer = $this->applyBranchFilter(Customer::where('user_id', $userId), request())
+                ->where(function ($q) use ($normPhone, $validated) {
+                    $q->where('phone', $validated['phone'])
+                      ->orWhere('phone', 'LIKE', '%' . $normPhone);
+                })->first();
         }
 
         if (!$customer) {

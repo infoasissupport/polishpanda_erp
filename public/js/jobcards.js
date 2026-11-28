@@ -763,6 +763,10 @@
   if (newBtn) {
     newBtn.addEventListener('click', async function () {
       await populateDropdowns();
+      var pLoyalty = document.getElementById('njPhoneLoyalty');
+      if (pLoyalty) { pLoyalty.textContent = ''; pLoyalty.style.display = 'none'; }
+      var vLoyalty = document.getElementById('njVehicleLoyalty');
+      if (vLoyalty) { vLoyalty.textContent = ''; vLoyalty.style.display = 'none'; }
       window.SW.openModal('newJobCardModal');
     });
   }
@@ -771,6 +775,7 @@
     newForm.addEventListener('submit', async function (e) {
       e.preventDefault();
       var customer = document.getElementById('njCustomer').value.trim();
+      var phone = document.getElementById('njPhone') ? document.getElementById('njPhone').value.trim() : '';
       var vehicle = document.getElementById('njVehicle').value.trim();
       var service = document.getElementById('njService').value;
       var bay = document.getElementById('njBay').value;
@@ -783,13 +788,17 @@
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
-          body: JSON.stringify({ customer, vehicle, service, bay, staff,  })
+          body: JSON.stringify({ customer, phone, vehicle, service, bay, staff })
         });
 
         if (res.ok) {
           window.SW.closeModal('newJobCardModal');
           window.SW.showToast('Job card created successfully');
           newForm.reset();
+          var pLoyalty = document.getElementById('njPhoneLoyalty');
+          if (pLoyalty) { pLoyalty.textContent = ''; pLoyalty.style.display = 'none'; }
+          var vLoyalty = document.getElementById('njVehicleLoyalty');
+          if (vLoyalty) { vLoyalty.textContent = ''; vLoyalty.style.display = 'none'; }
           await loadJobCards();
         } else {
           var err = await res.json();
@@ -1139,6 +1148,57 @@
   populateFilterDropdowns();
   loadJobCards();
   setInterval(loadJobCards, 5000);
+  var njPhone = document.getElementById('njPhone');
+  var njPhoneLoyalty = document.getElementById('njPhoneLoyalty');
+  if (njPhone && njPhoneLoyalty) {
+    var phoneLoyaltyTimeout;
+    var checkNjPhoneLoyalty = function() {
+      clearTimeout(phoneLoyaltyTimeout);
+      njPhoneLoyalty.style.color = '#10B981';
+      njPhoneLoyalty.style.display = 'none';
+      var val = njPhone.value.trim().replace(/\D+/g, '');
+      if (val.length < 5) return;
+
+      phoneLoyaltyTimeout = setTimeout(async function() {
+        try {
+          var res = await fetch('/api/loyalty?phone=' + encodeURIComponent(val));
+          if (res.ok) {
+            var data = await res.json();
+            if (data.customer) {
+              var cust = data.customer;
+              var njCustomer = document.getElementById('njCustomer');
+              if (njCustomer && !njCustomer.value) {
+                njCustomer.value = cust.name || '';
+              }
+              var njVehicle = document.getElementById('njVehicle');
+              if (njVehicle && !njVehicle.value && cust.vehicles && cust.vehicles.length > 0) {
+                var firstV = cust.vehicles[0];
+                var vStr = (firstV.brand || '') + (firstV.plate ? ' (' + firstV.plate + ')' : '');
+                njVehicle.value = vStr.trim() || firstV.plate || firstV.brand || '';
+              }
+            }
+            if (data.count > 0) {
+              njPhoneLoyalty.textContent = '🌟 Loyalty: Washed ' + data.count + (data.count === 1 ? ' time' : ' times') + ' previously';
+              njPhoneLoyalty.style.color = '#10B981';
+              njPhoneLoyalty.style.display = 'block';
+            } else if (data.customer) {
+              njPhoneLoyalty.textContent = 'Customer identified (0 previous washes)';
+              njPhoneLoyalty.style.color = '#64748B';
+              njPhoneLoyalty.style.display = 'block';
+            } else if (val.length >= 10) {
+              njPhoneLoyalty.textContent = 'New Customer';
+              njPhoneLoyalty.style.color = '#64748B';
+              njPhoneLoyalty.style.display = 'block';
+            }
+          }
+        } catch (e) {}
+      }, 500);
+    };
+
+    njPhone.addEventListener('input', checkNjPhoneLoyalty);
+    njPhone.addEventListener('change', checkNjPhoneLoyalty);
+  }
+
   var njVehicle = document.getElementById('njVehicle');
   var njVehicleLoyalty = document.getElementById('njVehicleLoyalty');
   if (njVehicle && njVehicleLoyalty) {
@@ -1155,6 +1215,16 @@
           var res = await fetch('/api/loyalty?vehicle=' + encodeURIComponent(val));
           if (res.ok) {
             var data = await res.json();
+            if (data.customer) {
+              var cust = data.customer;
+              var cInput = document.getElementById('njCustomer');
+              var pInput = document.getElementById('njPhone');
+              if (cInput && !cInput.value) cInput.value = cust.name || '';
+              if (pInput && !pInput.value) {
+                pInput.value = cust.phone || '';
+                pInput.dispatchEvent(new Event('input'));
+              }
+            }
             if (data.count > 0) {
               njVehicleLoyalty.textContent = '🌟 Loyalty: Washed ' + data.count + ' times previously';
               njVehicleLoyalty.style.display = 'block';

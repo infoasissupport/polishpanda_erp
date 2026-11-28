@@ -220,6 +220,11 @@
       loyaltyEl.textContent = '';
       loyaltyEl.style.display = 'none';
     }
+    var phoneLoyaltyEl = document.getElementById('nbPhoneLoyalty');
+    if (phoneLoyaltyEl) {
+      phoneLoyaltyEl.textContent = '';
+      phoneLoyaltyEl.style.display = 'none';
+    }
     if (document.getElementById('nbPhotosPreview')) {
       document.getElementById('nbPhotosPreview').innerHTML = '';
     }
@@ -398,6 +403,11 @@
     if (loyaltyEl) {
       loyaltyEl.textContent = '';
       loyaltyEl.style.display = 'none';
+    }
+    var phoneLoyaltyEl = document.getElementById('nbPhoneLoyalty');
+    if (phoneLoyaltyEl) {
+      phoneLoyaltyEl.textContent = '';
+      phoneLoyaltyEl.style.display = 'none';
     }
     if (document.getElementById('nbPhotosPreview')) {
       document.getElementById('nbPhotosPreview').innerHTML = '';
@@ -750,6 +760,16 @@
           var res = await fetch('/api/loyalty?vehicle=' + encodeURIComponent(val));
           if (res.ok) {
             var data = await res.json();
+            if (data.customer) {
+              var cust = data.customer;
+              var cInput = document.getElementById('nbCustomer');
+              var pInput = document.getElementById('nbPhone');
+              if (cInput && !cInput.value) cInput.value = cust.name || '';
+              if (pInput && !pInput.value) {
+                pInput.value = cust.phone || '';
+                pInput.dispatchEvent(new Event('input'));
+              }
+            }
             if (data.count > 0) {
               nbVehicleLoyalty.textContent = '🌟 Loyalty: Washed ' + data.count + ' times previously';
               nbVehicleLoyalty.style.display = 'block';
@@ -762,6 +782,63 @@
         } catch (e) {}
       }, 600);
     });
+  }
+
+  var nbPhone = document.getElementById('nbPhone');
+  var nbPhoneLoyalty = document.getElementById('nbPhoneLoyalty');
+  if (nbPhone && nbPhoneLoyalty) {
+    var nbPhoneLoyaltyTimeout;
+    var checkPhoneLoyalty = function() {
+      clearTimeout(nbPhoneLoyaltyTimeout);
+      nbPhoneLoyalty.style.color = '#10B981';
+      nbPhoneLoyalty.style.display = 'none';
+      var val = nbPhone.value.trim().replace(/\D+/g, '');
+      if (val.length < 5) return;
+
+      nbPhoneLoyaltyTimeout = setTimeout(async function() {
+        try {
+          var res = await fetch('/api/loyalty?phone=' + encodeURIComponent(val));
+          if (res.ok) {
+            var data = await res.json();
+            if (data.customer) {
+              var cust = data.customer;
+              var custInput = document.getElementById('nbCustomer');
+              if (custInput && !custInput.value) {
+                custInput.value = cust.name || '';
+              }
+              if (cust.vehicles && cust.vehicles.length > 0) {
+                var firstV = cust.vehicles[0];
+                var vInput = document.getElementById('nbVehicle');
+                var vPlateInput = document.getElementById('nbVehiclePlate');
+                var vTypeInput = document.getElementById('nbVehicleType');
+                if (vInput && !vInput.value) vInput.value = firstV.brand || '';
+                if (vPlateInput && !vPlateInput.value) {
+                  vPlateInput.value = firstV.plate || '';
+                  vPlateInput.dispatchEvent(new Event('input'));
+                }
+                if (vTypeInput && firstV.type) vTypeInput.value = firstV.type.toLowerCase();
+              }
+            }
+            if (data.count > 0) {
+              nbPhoneLoyalty.textContent = '🌟 Loyalty: Washed ' + data.count + (data.count === 1 ? ' time' : ' times') + ' previously';
+              nbPhoneLoyalty.style.color = '#10B981';
+              nbPhoneLoyalty.style.display = 'block';
+            } else if (data.customer) {
+              nbPhoneLoyalty.textContent = 'Customer identified (0 previous washes)';
+              nbPhoneLoyalty.style.color = '#64748B';
+              nbPhoneLoyalty.style.display = 'block';
+            } else if (val.length >= 10) {
+              nbPhoneLoyalty.textContent = 'New Customer';
+              nbPhoneLoyalty.style.color = '#64748B';
+              nbPhoneLoyalty.style.display = 'block';
+            }
+          }
+        } catch (e) {}
+      }, 500);
+    };
+
+    nbPhone.addEventListener('input', checkPhoneLoyalty);
+    nbPhone.addEventListener('change', checkPhoneLoyalty);
   }
 
   // Autocomplete logic for New Booking Customer/Phone
@@ -819,7 +896,10 @@
       
       item.addEventListener('click', function() {
         if (nbCustomerInput) nbCustomerInput.value = m.customer.name || '';
-        if (nbPhoneInput) nbPhoneInput.value = m.customer.phone || '';
+        if (nbPhoneInput) {
+          nbPhoneInput.value = m.customer.phone || '';
+          nbPhoneInput.dispatchEvent(new Event('input'));
+        }
         if (m.vehicle) {
           var nbVehicleInput = document.getElementById(prefix + 'Vehicle');
           var nbVehiclePlateInput = document.getElementById(prefix + 'VehiclePlate');

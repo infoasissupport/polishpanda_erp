@@ -157,6 +157,7 @@
             <label for="nbPhone">Phone</label>
             <input type="tel" id="nbPhone" inputmode="numeric" pattern="[0-9]*" maxlength="15" oninput="this.value = this.value.replace(/[^0-9]/g, '')" placeholder="Phone" autocomplete="off">
             <div id="nbPhoneDropdown" class="autocomplete-dropdown" style="display:none; position:absolute; top:100%; left:0; width:100%; background:#fff; border:1px solid #e2e8f0; z-index:100; max-height:200px; overflow-y:auto; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); margin-top:4px;"></div>
+            <div id="nbPhoneLoyalty" style="font-size:12px;color:#10B981;margin-top:4px;display:none;font-weight:600;"></div>
           </div>
           
           <div class="field"><label for="nbVehicle">Vehicle Name</label><input type="text" id="nbVehicle" placeholder="Vehicle Name"></div>
