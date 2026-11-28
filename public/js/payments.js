@@ -778,9 +778,33 @@
     if (payAction) {
       payAction.style.display = inv.status === 'pending' ? 'block' : 'none';
     }
+
+    var payDateGroup = document.getElementById('invPaymentDateGroup');
+    var payDateInput = document.getElementById('invPaymentDateInput');
+    if (payDateGroup && payDateInput) {
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var invDateStr = '';
+      if (inv.created_at) {
+        invDateStr = String(inv.created_at).slice(0, 10);
+      } else if (inv.date) {
+        var parsed = parseDateString(inv.date);
+        if (parsed && !isNaN(parsed.getTime())) {
+          invDateStr = parsed.toISOString().slice(0, 10);
+        }
+      }
+      if (inv.status === 'pending' && invDateStr && invDateStr < todayStr) {
+        payDateGroup.style.display = 'block';
+        payDateInput.value = invDateStr;
+      } else {
+        payDateGroup.style.display = 'none';
+        payDateInput.value = '';
+      }
+    }
   }
 
   function clearPreview() {
+    var payDateGroup = document.getElementById('invPaymentDateGroup');
+    if (payDateGroup) payDateGroup.style.display = 'none';
     document.getElementById('previewMeta').textContent = 'No invoice selected';
     document.getElementById('previewCustomerName').textContent = '—';
     document.getElementById('previewVehiclePlate').textContent = '—';
@@ -1045,6 +1069,17 @@
         method: method,
         paid_at: new Date().toISOString()
       };
+
+      var payDateInput = document.getElementById('invPaymentDateInput');
+      if (payDateInput && payDateInput.value) {
+        var pDateVal = payDateInput.value;
+        payload.paid_at = pDateVal + 'T12:00:00';
+        var dParts = pDateVal.split('-');
+        var dObj = new Date(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10));
+        if (!isNaN(dObj.getTime())) {
+          payload.date = dObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+      }
       
       if (method === 'upi_cash') {
         var sc = Number(document.getElementById('splitCashInput').value) || 0;

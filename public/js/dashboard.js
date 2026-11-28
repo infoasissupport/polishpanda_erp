@@ -231,6 +231,7 @@
     window.nbSelectedPhotos = [];
     var dateInput = document.getElementById('nbDate');
     if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+    checkNbPastDate();
 
     var timeInput = document.getElementById('nbTime');
     if (timeInput) {
@@ -310,6 +311,25 @@
     return y + '-' + m + '-' + day;
   }
 
+  function checkNbPastDate() {
+    var nbDateInput = document.getElementById('nbDate');
+    var notice = document.getElementById('nbPastDateNotice');
+    var label = document.getElementById('nbPastDateLabel');
+    if (!nbDateInput || !notice) return;
+    var val = nbDateInput.value;
+    var todayStr = new Date().toISOString().slice(0, 10);
+    if (val && val < todayStr) {
+      if (label) {
+        var parts = val.split('-');
+        var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        label.textContent = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+      notice.style.display = 'flex';
+    } else {
+      notice.style.display = 'none';
+    }
+  }
+
   var nbReminderTypeEl = document.getElementById('nbReminderType');
   if (nbReminderTypeEl) {
     nbReminderTypeEl.addEventListener('change', updateReminderDateFromType);
@@ -317,11 +337,13 @@
   var nbDateEl = document.getElementById('nbDate');
   if (nbDateEl) {
     nbDateEl.addEventListener('change', function () {
+      checkNbPastDate();
       var rt = document.getElementById('nbReminderType');
       if (rt && (rt.value === '1_week' || rt.value === '1_month')) {
         updateReminderDateFromType();
       }
     });
+    nbDateEl.addEventListener('input', checkNbPastDate);
   }
 
   form.addEventListener('submit', async function (e) {

@@ -71,11 +71,32 @@
       var timeString = '';
       var dateString = '';
       var waitString = '--';
-      if (b.created_at) {
+
+      if (b.booking_date) {
+        var bDateObj = new Date(b.booking_date.indexOf('T') !== -1 ? b.booking_date : b.booking_date + 'T12:00:00');
+        if (!isNaN(bDateObj.getTime())) {
+          dateString = bDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+      }
+      if (!dateString && b.created_at) {
+        var dateObj = new Date(b.created_at);
+        if (!isNaN(dateObj.getTime())) {
+          dateString = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+      }
+
+      if (b.time_label) {
+        timeString = b.time_label;
+      } else if (b.created_at) {
         var dateObj = new Date(b.created_at);
         if (!isNaN(dateObj.getTime())) {
           timeString = dateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
-          dateString = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+      }
+
+      if (b.created_at) {
+        var dateObj = new Date(b.created_at);
+        if (!isNaN(dateObj.getTime())) {
           waitString = formatWaitTime(Date.now() - dateObj.getTime());
         }
       }

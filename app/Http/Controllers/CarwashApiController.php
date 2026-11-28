@@ -523,10 +523,16 @@ FILES:
             [$minutes, $timeLabel] = $this->formatTimeLabel($validated['time']);
             $branchId = $validated['branch_id'] ?? $this->defaultBranchId();
 
-            $booking = Booking::create([
+            $bookingDateStr = $validated['booking_date'] ?? now()->toDateString();
+            $isPastBooking = \Carbon\Carbon::parse($bookingDateStr)->isBefore(today());
+            $bookingCreatedAt = $isPastBooking
+                ? \Carbon\Carbon::parse($bookingDateStr . ' ' . $validated['time'])
+                : now();
+
+            $booking = new Booking([
                 'user_id' => $userId,
                 'branch_id' => $branchId,
-                'booking_date' => $validated['booking_date'] ?? now()->toDateString(),
+                'booking_date' => $bookingDateStr,
                 'customer' => $validated['customer'],
                 'phone' => $validated['phone'] ?? null,
                 'vehicle' => $validated['vehicle'] ?? null,
@@ -545,14 +551,19 @@ FILES:
                 'minutes' => $minutes,
                 'time_label' => $timeLabel,
             ]);
+            if ($isPastBooking) {
+                $booking->created_at = $bookingCreatedAt;
+                $booking->updated_at = $bookingCreatedAt;
+            }
+            $booking->save();
 
             $customer = $this->findOrCreateCustomerFromBooking($validated, $userId);
 
             if ($customer) {
                 $customer->forceFill([
-                    'last_visit' => 'Today',
-                    'last_visit_at' => now(),
-                    'follow_up_due_at' => now()->addDays(14),
+                    'last_visit' => $isPastBooking ? \Carbon\Carbon::parse($bookingDateStr)->format('d M Y') : 'Today',
+                    'last_visit_at' => $isPastBooking ? $bookingCreatedAt : now(),
+                    'follow_up_due_at' => ($isPastBooking ? $bookingCreatedAt->copy() : now())->addDays(14),
                 ])->save();
             }
 
@@ -2163,11 +2174,35 @@ FILES:
             $cardData['branch_id'] = $validated['branch_id'] ?? ($booking->branch_id ?? $this->defaultBranchId());
         }
 
-        if (Schema::hasColumn('job_cards', 'started_at_at')) {
+        $isPastBooking = false;
+        $pastCreatedAt = null;
+        if ($booking && $booking->booking_date) {
+            $bDate = \Carbon\Carbon::parse($booking->booking_date);
+            if ($bDate->isBefore(today())) {
+                $isPastBooking = true;
+                $timeStr = $booking->time_label ?: '12:00';
+                $pastCreatedAt = \Carbon\Carbon::parse($bDate->format('Y-m-d') . ' ' . $timeStr);
+            }
+        } elseif ($booking && $booking->created_at && $booking->created_at->isBefore(today())) {
+            $isPastBooking = true;
+            $pastCreatedAt = $booking->created_at;
+        }
+
+        if ($isPastBooking && $pastCreatedAt) {
+            $cardData['started_at'] = $pastCreatedAt->format('H:i');
+            if (Schema::hasColumn('job_cards', 'started_at_at')) {
+                $cardData['started_at_at'] = $pastCreatedAt;
+            }
+        } elseif (Schema::hasColumn('job_cards', 'started_at_at')) {
             $cardData['started_at_at'] = now();
         }
 
-        $card = JobCard::create($cardData);
+        $card = new JobCard($cardData);
+        if ($isPastBooking && $pastCreatedAt) {
+            $card->created_at = $pastCreatedAt;
+            $card->updated_at = $pastCreatedAt;
+        }
+        $card->save();
 
         if ($booking) {
             $booking->update(['status' => 'inprogress']);
@@ -2231,7 +2266,11 @@ FILES:
 
         $wasCompleted = $card->stage === 'completed';
         if (($validated['stage'] ?? null) === 'completed' && Schema::hasColumn('job_cards', 'completed_at_at') && !$card->completed_at_at) {
-            $validated['completed_at_at'] = now();
+            if ($card->created_at && $card->created_at->isBefore(today())) {
+                $validated['completed_at_at'] = $card->created_at->copy()->addMinutes(45);
+            } else {
+                $validated['completed_at_at'] = now();
+            }
         }
 
         if (!Schema::hasColumn('job_cards', 'branch_id')) {
@@ -2629,7 +2668,14 @@ FILES:
             $invoice->payment_status = $validated['status'];
             if ($validated['status'] === 'paid') {
                 $invoice->paid_at = $validated['paid_at'] ?? now();
-                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
+                if (!empty($validated['date'])) {
+                    $invoice->date = $validated['date'];
+                } else {
+                    $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
+                }
+                if (\Carbon\Carbon::parse($invoice->paid_at)->isBefore(today())) {
+                    $invoice->created_at = $invoice->paid_at;
+                }
             }
         }
 
@@ -2638,7 +2684,14 @@ FILES:
             $invoice->status = $validated['payment_status'];
             if ($validated['payment_status'] === 'paid') {
                 $invoice->paid_at = $validated['paid_at'] ?? now();
-                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
+                if (!empty($validated['date'])) {
+                    $invoice->date = $validated['date'];
+                } else {
+                    $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
+                }
+                if (\Carbon\Carbon::parse($invoice->paid_at)->isBefore(today())) {
+                    $invoice->created_at = $invoice->paid_at;
+                }
             }
         }
 
@@ -2960,6 +3013,10 @@ FILES:
         }
 
         $invoice = InvoiceCalculator::applyTo(new Invoice($invoiceData));
+        if ($card->created_at && $card->created_at->isBefore(today())) {
+            $invoice->created_at = $card->created_at;
+            $invoice->updated_at = $card->created_at;
+        }
         $invoice->save();
 
         if (Schema::hasColumn('job_cards', 'invoice_id')) {

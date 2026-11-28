@@ -217,6 +217,10 @@
           <div class="field"><label for="nbDate">Date</label><input type="date" id="nbDate"></div>
             <div class="field"><label for="nbTime">Time</label><input type="time" id="nbTime"></div>
         </div>
+        <div id="nbPastDateNotice" style="display:none;margin-top:6px;margin-bottom:12px;padding:8px 12px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:10px;font-size:12.5px;color:#92400E;display:flex;align-items:center;gap:8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#d97706;flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span><strong>Previous Day Appointment:</strong> All flow dates (Queue arrival, Job Card, Invoice &amp; Payment date) will be recorded as <strong id="nbPastDateLabel"></strong>.</span>
+        </div>
          <div class="field">
           <label>Before Photos</label>
           <div class="jc-photo-grid">

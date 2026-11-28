@@ -191,6 +191,15 @@
           <button class="btn btn-accent" id="markAsPaidBtn" style="height:36px;"><i class="ti ti-check"></i>Mark as Paid</button>
         </div>
         </div>
+        <div class="inv-pay-group" id="invPaymentDateGroup" style="display:none;margin-top:6px;">
+          <label for="invPaymentDateInput" style="font-size:12px;color:#92400e;display:flex;align-items:center;gap:6px;font-weight:600;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#d97706;"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
+            Payment Date <span style="font-size:11px;font-weight:500;color:#b45309;">(Previous Day Appointment)</span>
+          </label>
+          <div class="inv-pay-row">
+            <input type="date" id="invPaymentDateInput" style="flex:1;height:36px;border-radius:10px;border:1px solid #FCD34D;background:#FFFBEB;color:#92400E;padding:0 10px;font-size:13px;font-weight:600;">
+          </div>
+        </div>
        </div>
         
         <div id="splitPaymentFields" style="display:none; gap:8px; margin-bottom:8px;">
