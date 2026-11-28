@@ -208,6 +208,22 @@
         </div>
         <div id="splitErrorMsg" style="display:none; color:#EF4444; font-size:12px; margin-bottom:8px;">Total does not match the invoice amount.</div>
       </div>
+
+      <div class="inv-preview-payment" id="paidAdminActionContainer" style="display:none; padding:12px 14px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-size:12.5px; font-weight:700; color:#16A34A; display:flex; align-items:center; gap:5px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              Payment Received
+            </div>
+            <div style="font-size:11.5px; color:#64748B; margin-top:2px;" id="paidInfoSummary">Paid via Cash</div>
+          </div>
+          <button type="button" class="btn btn-outline" id="revertToPendingBtn" style="height:34px; padding:0 12px; font-size:12px; font-weight:600; border-color:#FECACA; background:#FEF2F2; color:#DC2626; display:inline-flex; align-items:center; gap:6px; border-radius:8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+            Revert to Pending
+          </button>
+        </div>
+      </div>
     </div>
   </div>
   </div>
@@ -222,9 +238,61 @@
     <form id="editInvoiceForm">
       <input type="hidden" id="editInvoiceId">
       <div class="modal-body" style="max-height: calc(85vh - 120px); overflow-y: auto;">
-        <div class="field">
-          <label class="label" for="editInvoiceDate">Invoice Date</label>
-          <input type="text" id="editInvoiceDate" required placeholder="e.g. 09 Sep 2026">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="field" style="margin-bottom: 0;">
+            <label class="label" for="editInvoiceDate">Invoice Date</label>
+            <input type="text" id="editInvoiceDate" required placeholder="e.g. 09 Sep 2026">
+          </div>
+          <div class="field" style="margin-bottom: 0;">
+            <label class="label" for="editInvoiceStatus">Payment Status</label>
+            <select id="editInvoiceStatus" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 13px; color: #1e293b; font-weight: 600;">
+              <option value="paid">Paid</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="field" style="margin-bottom: 0;">
+            <label class="label" for="editInvoiceSubtotal">Service Amount (₹)</label>
+            <input type="number" id="editInvoiceSubtotal" step="0.01" min="0" placeholder="e.g. 400">
+          </div>
+          <div class="field" style="margin-bottom: 0;">
+            <label class="label" for="editInvoiceDiscount">Discount (₹)</label>
+            <input type="number" id="editInvoiceDiscount" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+
+        <div id="editInvoicePaymentSection" style="padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 14px;">
+          <div style="font-weight: 600; font-size: 12px; color: #475569; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"></rect><line x1="2" x2="22" y1="10" y2="10"></line></svg>
+            Payment Details
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="field" style="margin-bottom: 0;">
+              <label class="label" for="editInvoiceMethod">Payment Method</label>
+              <select id="editInvoiceMethod" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 13px; color: #1e293b;">
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="card">Card</option>
+                <option value="upi_cash">UPI + Cash</option>
+              </select>
+            </div>
+            <div class="field" style="margin-bottom: 0;">
+              <label class="label" for="editInvoicePaidAt">Payment Date</label>
+              <input type="date" id="editInvoicePaidAt" style="width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 13px; color: #1e293b;">
+            </div>
+          </div>
+          <div id="editInvoiceSplitSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+            <div class="field" style="margin-bottom: 0;">
+              <label class="label" for="editInvoiceSplitCash">Cash Amount (₹)</label>
+              <input type="number" id="editInvoiceSplitCash" step="0.01" min="0" placeholder="Cash share">
+            </div>
+            <div class="field" style="margin-bottom: 0;">
+              <label class="label" for="editInvoiceSplitUpi">UPI Amount (₹)</label>
+              <input type="number" id="editInvoiceSplitUpi" step="0.01" min="0" placeholder="UPI share">
+            </div>
+          </div>
         </div>
 
         <div style="margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 14px;">

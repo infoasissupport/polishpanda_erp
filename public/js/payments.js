@@ -779,6 +779,33 @@
       payAction.style.display = inv.status === 'pending' ? 'block' : 'none';
     }
 
+    var isManager = (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager');
+    var paidAdminAction = document.getElementById('paidAdminActionContainer');
+    if (paidAdminAction) {
+      if (!isManager && inv.status === 'paid') {
+        paidAdminAction.style.display = 'block';
+        var paidInfoSummary = document.getElementById('paidInfoSummary');
+        if (paidInfoSummary) {
+          var methodText = (inv.method || 'cash').toUpperCase();
+          if (inv.method === 'upi_cash') {
+            methodText = 'UPI + Cash (Cash: ₹' + (inv.split_cash || 0) + ', UPI: ₹' + (inv.split_upi || 0) + ')';
+          }
+          var pDateText = '';
+          if (inv.paid_at) {
+            var pDateObj = new Date(inv.paid_at);
+            if (!isNaN(pDateObj.getTime())) {
+              pDateText = ' on ' + pDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            }
+          } else if (inv.date) {
+            pDateText = ' on ' + inv.date;
+          }
+          paidInfoSummary.textContent = 'Paid via ' + methodText + pDateText;
+        }
+      } else {
+        paidAdminAction.style.display = 'none';
+      }
+    }
+
     var payDateGroup = document.getElementById('invPaymentDateGroup');
     var payDateInput = document.getElementById('invPaymentDateInput');
     if (payDateGroup && payDateInput) {
@@ -792,7 +819,6 @@
           invDateStr = parsed.toISOString().slice(0, 10);
         }
       }
-      var isManager = (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager');
       if (!isManager && inv.status === 'pending' && invDateStr && invDateStr < todayStr) {
         payDateGroup.style.display = 'block';
         payDateInput.value = invDateStr;
@@ -806,6 +832,8 @@
   function clearPreview() {
     var payDateGroup = document.getElementById('invPaymentDateGroup');
     if (payDateGroup) payDateGroup.style.display = 'none';
+    var paidAdminAction = document.getElementById('paidAdminActionContainer');
+    if (paidAdminAction) paidAdminAction.style.display = 'none';
     document.getElementById('previewMeta').textContent = 'No invoice selected';
     document.getElementById('previewCustomerName').textContent = '—';
     document.getElementById('previewVehiclePlate').textContent = '—';
@@ -1110,6 +1138,41 @@
         } else {
           var err = await res.json();
           alert('Error: ' + (err.message || 'Could not update invoice.'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('A connection error occurred.');
+      }
+    });
+  }
+
+  var revertToPendingBtn = document.getElementById('revertToPendingBtn');
+  if (revertToPendingBtn) {
+    revertToPendingBtn.addEventListener('click', async function () {
+      if (window.AUTH_USER_ROLE === 'manager' || localStorage.getItem('sw_user_role') === 'manager') return;
+      var inv = findInvoice(selectedId);
+      if (!inv) return;
+      if (!confirm('Revert invoice ' + (inv.invoice_number || inv.id) + ' back to Pending status?')) return;
+      try {
+        var res = await fetch('/api/invoices/' + inv.id, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            _method: 'PUT',
+            status: 'pending',
+            payment_status: 'pending'
+          })
+        });
+        if (res.ok) {
+          window.SW.showToast('Invoice reverted to Pending');
+          await loadInvoices();
+          selectInvoice(inv.id);
+        } else {
+          var err = await res.json().catch(function () { return {}; });
+          alert('Error: ' + (err.message || 'Could not revert invoice.'));
         }
       } catch (err) {
         console.error(err);
@@ -1513,6 +1576,29 @@
 
   var editInvoiceBtn = document.getElementById('previewEditBtn');
   var editInvoiceForm = document.getElementById('editInvoiceForm');
+  var editInvoiceStatusSelect = document.getElementById('editInvoiceStatus');
+  var editInvoiceMethodSelect = document.getElementById('editInvoiceMethod');
+
+  function updateEditInvoiceVisibility() {
+    var statusEl = document.getElementById('editInvoiceStatus');
+    var methodEl = document.getElementById('editInvoiceMethod');
+    var pSec = document.getElementById('editInvoicePaymentSection');
+    var sSec = document.getElementById('editInvoiceSplitSection');
+    var isPaid = statusEl && statusEl.value === 'paid';
+    if (pSec) {
+      pSec.style.display = isPaid ? 'block' : 'none';
+    }
+    if (sSec) {
+      sSec.style.display = (isPaid && methodEl && methodEl.value === 'upi_cash') ? 'grid' : 'none';
+    }
+  }
+
+  if (editInvoiceStatusSelect) {
+    editInvoiceStatusSelect.addEventListener('change', updateEditInvoiceVisibility);
+  }
+  if (editInvoiceMethodSelect) {
+    editInvoiceMethodSelect.addEventListener('change', updateEditInvoiceVisibility);
+  }
   
   if (editInvoiceBtn) {
     editInvoiceBtn.addEventListener('click', async function () {
@@ -1521,6 +1607,45 @@
       if (!inv) return;
       document.getElementById('editInvoiceId').value = inv.id;
       document.getElementById('editInvoiceDate').value = inv.date || '';
+
+      var statusEl = document.getElementById('editInvoiceStatus');
+      if (statusEl) statusEl.value = inv.status || 'pending';
+
+      var subtotalEl = document.getElementById('editInvoiceSubtotal');
+      if (subtotalEl) {
+        subtotalEl.value = (inv.subtotal != null ? inv.subtotal : (inv.amount != null ? inv.amount : ''));
+      }
+
+      var discountEl = document.getElementById('editInvoiceDiscount');
+      if (discountEl) {
+        discountEl.value = (inv.discount_amount != null ? inv.discount_amount : 0);
+      }
+
+      var methodEl = document.getElementById('editInvoiceMethod');
+      if (methodEl) {
+        methodEl.value = (inv.method && inv.method !== 'pending') ? inv.method : 'cash';
+      }
+
+      var paidAtEl = document.getElementById('editInvoicePaidAt');
+      if (paidAtEl) {
+        var pDateVal = '';
+        if (inv.paid_at) {
+          pDateVal = String(inv.paid_at).slice(0, 10);
+        } else if (inv.created_at) {
+          pDateVal = String(inv.created_at).slice(0, 10);
+        } else {
+          pDateVal = new Date().toISOString().slice(0, 10);
+        }
+        paidAtEl.value = pDateVal;
+      }
+
+      var splitCashEl = document.getElementById('editInvoiceSplitCash');
+      if (splitCashEl) splitCashEl.value = (inv.split_cash != null ? inv.split_cash : '');
+
+      var splitUpiEl = document.getElementById('editInvoiceSplitUpi');
+      if (splitUpiEl) splitUpiEl.value = (inv.split_upi != null ? inv.split_upi : '');
+
+      updateEditInvoiceVisibility();
 
       if (inv.items && Array.isArray(inv.items) && inv.items.length > 0) {
         editInvoiceItems = inv.items.map(function (it) {
@@ -1558,6 +1683,12 @@
       var id = document.getElementById('editInvoiceId').value;
       if (!id) return;
       var dateVal = document.getElementById('editInvoiceDate').value.trim();
+      var statusEl = document.getElementById('editInvoiceStatus');
+      var statusVal = statusEl ? statusEl.value : 'pending';
+      var subtotalEl = document.getElementById('editInvoiceSubtotal');
+      var subtotalVal = subtotalEl && subtotalEl.value !== '' ? parseFloat(subtotalEl.value) : null;
+      var discountEl = document.getElementById('editInvoiceDiscount');
+      var discountVal = discountEl && discountEl.value !== '' ? parseFloat(discountEl.value) : 0;
 
       var validItems = editInvoiceItems.filter(function (it) {
         return (it.name && it.name.trim().length > 0) || (Number(it.price) > 0);
@@ -1584,9 +1715,42 @@
       });
 
       var payload = {
+        status: statusVal,
+        payment_status: statusVal,
         items: validItems
       };
       if (dateVal) payload.date = dateVal;
+      if (subtotalVal !== null && !isNaN(subtotalVal) && subtotalVal >= 0) {
+        payload.subtotal = subtotalVal;
+      }
+      if (!isNaN(discountVal) && discountVal >= 0) {
+        payload.discount_amount = discountVal;
+      }
+
+      if (statusVal === 'paid') {
+        var methodEl = document.getElementById('editInvoiceMethod');
+        var methodVal = methodEl ? methodEl.value : 'cash';
+        payload.method = methodVal;
+        var paidAtEl = document.getElementById('editInvoicePaidAt');
+        var paidAtVal = paidAtEl ? paidAtEl.value : '';
+        if (paidAtVal) {
+          payload.paid_at = paidAtVal + 'T12:00:00';
+          var dParts = paidAtVal.split('-');
+          var dObj = new Date(parseInt(dParts[0], 10), parseInt(dParts[1], 10) - 1, parseInt(dParts[2], 10));
+          if (!isNaN(dObj.getTime())) {
+            payload.date = dObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+          }
+        }
+        if (methodVal === 'upi_cash') {
+          payload.split_cash = Number(document.getElementById('editInvoiceSplitCash').value) || 0;
+          payload.split_upi = Number(document.getElementById('editInvoiceSplitUpi').value) || 0;
+        }
+      } else {
+        payload.method = 'pending';
+        payload.paid_at = null;
+        payload.split_cash = null;
+        payload.split_upi = null;
+      }
 
       if (validItems.length === 0) {
         payload.item_name = null;

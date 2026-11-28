@@ -2736,14 +2736,15 @@ FILES:
             'payment_reference' => 'nullable|string|max:255',
             'paid_at' => 'nullable|date',
             'due_at' => 'nullable|date',
-            'discount_amount' => 'nullable|integer',
-            'amount' => 'nullable|integer',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'subtotal' => 'nullable|numeric|min:0',
+            'amount' => 'nullable|numeric|min:0',
             'split_cash' => 'nullable|numeric',
             'split_upi' => 'nullable|numeric',
             'date' => 'nullable|string',
             'item_name' => 'nullable|string|max:255',
-            'item_price' => 'nullable|integer',
-            'item_quantity' => 'nullable|integer|min:1',
+            'item_price' => 'nullable|numeric',
+            'item_quantity' => 'nullable|numeric|min:0.01',
             'product_id' => 'nullable|integer|exists:inventory_items,id',
             'items' => 'nullable|array',
             'items.*.name' => 'nullable|string|max:255',
@@ -2757,15 +2758,23 @@ FILES:
         $userId = $this->currentUserId();
         $invoice = $this->applyBranchFilter(Invoice::where('user_id', $userId), request())->findOrFail($id);
 
-        if (isset($validated['status'])) {
-            $invoice->status = $validated['status'];
-            $invoice->payment_status = $validated['status'];
-            if ($validated['status'] === 'paid') {
+        if (Auth::user()?->role === 'manager') {
+            if ($invoice->status === 'paid' || ($request->has('status') && $request->input('status') !== 'paid') || $request->has('items') || $request->has('subtotal')) {
+                return response()->json(['message' => 'Action not permitted for managers'], 403);
+            }
+        }
+
+        $targetStatus = $validated['status'] ?? ($validated['payment_status'] ?? null);
+        if ($targetStatus !== null) {
+            $invoice->status = $targetStatus;
+            $invoice->payment_status = $targetStatus;
+
+            if ($targetStatus === 'paid') {
                 if (Auth::user()?->role === 'manager' && !empty($validated['paid_at']) && \Carbon\Carbon::parse($validated['paid_at'])->isBefore(today())) {
                     $validated['paid_at'] = now();
                     $validated['date'] = now()->format('d M Y');
                 }
-                $invoice->paid_at = $validated['paid_at'] ?? now();
+                $invoice->paid_at = !empty($validated['paid_at']) ? $validated['paid_at'] : ($invoice->paid_at ?? now());
                 if (!empty($validated['date'])) {
                     $invoice->date = $validated['date'];
                 } else {
@@ -2774,47 +2783,53 @@ FILES:
                 if (\Carbon\Carbon::parse($invoice->paid_at)->isBefore(today())) {
                     $invoice->created_at = $invoice->paid_at;
                 }
-            }
-        }
-
-        if (isset($validated['payment_status'])) {
-            $invoice->payment_status = $validated['payment_status'];
-            $invoice->status = $validated['payment_status'];
-            if ($validated['payment_status'] === 'paid') {
-                if (Auth::user()?->role === 'manager' && !empty($validated['paid_at']) && \Carbon\Carbon::parse($validated['paid_at'])->isBefore(today())) {
-                    $validated['paid_at'] = now();
-                    $validated['date'] = now()->format('d M Y');
+                if (isset($validated['method'])) {
+                    $invoice->method = $validated['method'];
                 }
-                $invoice->paid_at = $validated['paid_at'] ?? now();
-                if (!empty($validated['date'])) {
-                    $invoice->date = $validated['date'];
-                } else {
+                if (array_key_exists('split_cash', $validated)) {
+                    $invoice->split_cash = $validated['split_cash'];
+                }
+                if (array_key_exists('split_upi', $validated)) {
+                    $invoice->split_upi = $validated['split_upi'];
+                }
+            } elseif ($targetStatus === 'pending') {
+                $invoice->paid_at = null;
+                $invoice->method = 'pending';
+                $invoice->split_cash = null;
+                $invoice->split_upi = null;
+                $invoice->payment_reference = null;
+            }
+        } else {
+            if (isset($validated['method']) && $invoice->status === 'paid') {
+                $invoice->method = $validated['method'];
+            }
+            if (array_key_exists('split_cash', $validated) && $invoice->status === 'paid') {
+                $invoice->split_cash = $validated['split_cash'];
+            }
+            if (array_key_exists('split_upi', $validated) && $invoice->status === 'paid') {
+                $invoice->split_upi = $validated['split_upi'];
+            }
+            if (array_key_exists('paid_at', $validated) && $invoice->status === 'paid') {
+                $invoice->paid_at = $validated['paid_at'];
+                if ($invoice->paid_at) {
                     $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
-                }
-                if (\Carbon\Carbon::parse($invoice->paid_at)->isBefore(today())) {
-                    $invoice->created_at = $invoice->paid_at;
+                    if (\Carbon\Carbon::parse($invoice->paid_at)->isBefore(today())) {
+                        $invoice->created_at = $invoice->paid_at;
+                    }
                 }
             }
-        }
-
-        if (isset($validated['method'])) {
-            $invoice->method = $validated['method'];
         }
 
         if (array_key_exists('payment_reference', $validated)) {
             $invoice->payment_reference = $validated['payment_reference'];
         }
 
-        if (array_key_exists('split_cash', $validated)) {
-            $invoice->split_cash = $validated['split_cash'];
-        }
-
-        if (array_key_exists('split_upi', $validated)) {
-            $invoice->split_upi = $validated['split_upi'];
-        }
-
         if (array_key_exists('discount_amount', $validated)) {
             $invoice->discount_amount = $validated['discount_amount'];
+        }
+
+        if (array_key_exists('subtotal', $validated)) {
+            $invoice->subtotal = $validated['subtotal'];
         }
 
         if (array_key_exists('amount', $validated)) {
@@ -2825,14 +2840,7 @@ FILES:
             $invoice->due_at = $validated['due_at'];
         }
 
-        if (array_key_exists('paid_at', $validated)) {
-            $invoice->paid_at = $validated['paid_at'];
-            if ($invoice->paid_at && $invoice->status === 'paid') {
-                $invoice->date = \Carbon\Carbon::parse($invoice->paid_at)->format('d M Y');
-            }
-        }
-
-        if (isset($validated['date'])) {
+        if (isset($validated['date']) && $invoice->status !== 'paid') {
             $invoice->date = $validated['date'];
         }
 
