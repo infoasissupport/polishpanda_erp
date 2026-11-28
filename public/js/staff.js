@@ -532,8 +532,8 @@
   }
 
   // Branch is no longer an editable field in the staff form (hidden input).
-  // Defaults new staff to the first configured branch; openEdit() overwrites
-  // this with the staff member's existing branch right after.
+  // Defaults new staff to currently active branch (or first configured branch);
+  // openEdit() overwrites this with the staff member's existing branch right after.
   async function populateBranches() {
     var input = document.getElementById('stfBranch');
     if (!input || input.value) return;
@@ -542,7 +542,16 @@
       if (res.ok) {
         var data = await res.json();
         var branches = data.branches || [];
-        if (branches.length) input.value = branches[0].name;
+        var activeBranchRaw = localStorage.getItem('sw_branch') || '';
+        var matched = branches.find(function (b) {
+          var t = b.code ? b.code + ' · ' + b.name : b.name;
+          return t === activeBranchRaw || b.name === activeBranchRaw || (b.code && activeBranchRaw.indexOf(b.code) !== -1);
+        });
+        if (matched) {
+          input.value = matched.name;
+        } else if (branches.length) {
+          input.value = branches[0].name;
+        }
       }
     } catch (e) {
       console.error('Failed to default staff branch:', e);
@@ -699,6 +708,7 @@
     if (document.getElementById('stfRole')) {
       document.getElementById('stfRole').value = s.role || 'staff';
     }
+    if (window.toggleManagerFields) window.toggleManagerFields();
     document.getElementById('stfBranch').value = s.branch;
     setShiftField(s.shift);
     document.getElementById('stfAttendance').value = s.attendance;

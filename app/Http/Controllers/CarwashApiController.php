@@ -1572,18 +1572,48 @@ FILES:
         // Auto-create/sync User account if role is manager
         if (isset($validated['role']) && $validated['role'] === 'manager') {
             $email = $request->input('email') ?: ($validated['phone'] . '@carwash.local');
-            $branch = $this->applyBranchFilter(\App\Models\Branch::where('user_id', $userId), request())->where('name', $validated['branch'])->first();
+            $branch = Branch::where('user_id', $userId)->where('name', $validated['branch'])->first()
+                ?? Branch::where('user_id', $userId)->find($staff->branch_id)
+                ?? Branch::where('user_id', $userId)->first()
+                ?? Branch::where('name', $validated['branch'])->first()
+                ?? Branch::find($staff->branch_id)
+                ?? Branch::first();
             $pass = $request->input('password') ?: 'password123';
-            \App\Models\User::firstOrCreate(
-                ['email' => $email],
-                [
+
+            $user = \App\Models\User::where('owner_id', $userId)
+                ->where(function ($q) use ($email, $validated) {
+                    $q->where('email', $email)
+                        ->orWhere('name', $validated['name']);
+                })
+                ->where('role', 'manager')
+                ->first();
+
+            if (!$user) {
+                $user = \App\Models\User::where('email', $email)->first();
+            }
+
+            if ($user) {
+                $userUpdate = [
                     'name' => $validated['name'],
+                    'email' => $email,
+                    'role' => 'manager',
+                    'owner_id' => $userId,
+                    'assigned_branch_id' => $branch ? $branch->id : null,
+                ];
+                if ($request->filled('password')) {
+                    $userUpdate['password'] = \Illuminate\Support\Facades\Hash::make($pass);
+                }
+                $user->update($userUpdate);
+            } else {
+                \App\Models\User::create([
+                    'name' => $validated['name'],
+                    'email' => $email,
                     'password' => \Illuminate\Support\Facades\Hash::make($pass),
                     'role' => 'manager',
                     'owner_id' => $userId,
-                    'assigned_branch_id' => $branch ? $branch->id : null
-                ]
-            );
+                    'assigned_branch_id' => $branch ? $branch->id : null,
+                ]);
+            }
         }
         // Record attendance for selected date
         $date = $request->input('date') ?: today()->toDateString();
@@ -1691,7 +1721,12 @@ FILES:
         // Auto-create/sync User account if role is manager
         if (isset($validated['role']) && $validated['role'] === 'manager') {
             $email = $request->input('email') ?: ($validated['phone'] . '@carwash.local');
-            $branch = $this->applyBranchFilter(\App\Models\Branch::where('user_id', $userId), request())->where('name', $validated['branch'])->first();
+            $branch = Branch::where('user_id', $userId)->where('name', $validated['branch'])->first()
+                ?? Branch::where('user_id', $userId)->find($staff->branch_id)
+                ?? Branch::where('user_id', $userId)->first()
+                ?? Branch::where('name', $validated['branch'])->first()
+                ?? Branch::find($staff->branch_id)
+                ?? Branch::first();
 
             $user = \App\Models\User::where('owner_id', $userId)
                 ->where(function ($q) use ($email, $validated) {
@@ -1701,11 +1736,17 @@ FILES:
                 ->where('role', 'manager')
                 ->first();
 
+            if (!$user) {
+                $user = \App\Models\User::where('email', $email)->first();
+            }
+
             $pass = $request->input('password') ?: null;
             if ($user) {
                 $updateData = [
                     'name' => $validated['name'],
                     'email' => $email,
+                    'role' => 'manager',
+                    'owner_id' => $userId,
                     'assigned_branch_id' => $branch ? $branch->id : null
                 ];
                 if ($pass) {
@@ -1722,6 +1763,17 @@ FILES:
                     'assigned_branch_id' => $branch ? $branch->id : null
                 ]);
             }
+        } elseif (isset($validated['role']) && $validated['role'] !== 'manager' && $staff->role === 'manager') {
+            \App\Models\User::where('owner_id', $userId)
+                ->where('role', 'manager')
+                ->where(function ($q) use ($staff) {
+                    if ($staff->email) {
+                        $q->where('email', $staff->email);
+                    } else {
+                        $q->where('name', $staff->name);
+                    }
+                })
+                ->delete();
         }
         // Return status matching date
         $staff->attendance = $status;
